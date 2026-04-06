@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Candy Break",
+    "slug": "candybreak",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B132B"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B132B"
+      },
+      "package": "com.mike008.candybreak"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
