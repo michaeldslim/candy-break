@@ -13,9 +13,16 @@ export const GAME_SHAPES: IGameShape[] = [
   {
     id: 'square',
     label: 'Square',
-    mask: Array.from({ length: GAME_CONFIG.rows }, () =>
-      Array.from({ length: GAME_CONFIG.cols }, () => true),
-    ),
+    mask: [
+      [false, false, false, false, false, false, false, false],
+      [false, true, true, true, true, true, true, false],
+      [false, true, true, true, true, true, true, false],
+      [false, true, true, true, true, true, true, false],
+      [false, true, true, true, true, true, true, false],
+      [false, true, true, true, true, true, true, false],
+      [false, true, true, true, true, true, true, false],
+      [false, false, false, false, false, false, false, false],
+    ],
   },
   {
     id: 'diamond',

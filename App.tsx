@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef } from 'react';
+import { Audio } from 'expo-av';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Platform,
@@ -12,7 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useBackgroundMusic } from './src/hooks/useBackgroundMusic';
+import Fireworks from './src/components/Fireworks';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
 
 const HORIZONTAL_PADDING = 24;
@@ -27,7 +28,6 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function App() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const { isMusicOn, canPlayMusic, toggleMusic } = useBackgroundMusic();
   const {
     board,
     shapeMask,
@@ -49,6 +49,55 @@ export default function App() {
   } = useCandyBreak();
 
   const matchAnim = useRef(new Animated.Value(0)).current;
+  const matchSoundRef = useRef<Audio.Sound | null>(null);
+  const congratsSoundRef = useRef<Audio.Sound | null>(null);
+  const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevFinalWinRef = useRef(false);
+  const [showFireworks, setShowFireworks] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSounds = async (): Promise<void> => {
+      const { sound } = await Audio.Sound.createAsync(
+        require('./assets/sounds/match.mp3'),
+      );
+      const { sound: congratsSound } = await Audio.Sound.createAsync(
+        require('./assets/sounds/congrats.mp3'),
+      );
+
+      if (!mounted) {
+        await sound.unloadAsync();
+        await congratsSound.unloadAsync();
+        return;
+      }
+
+      matchSoundRef.current = sound;
+      congratsSoundRef.current = congratsSound;
+    };
+
+    loadSounds().catch(() => {
+      matchSoundRef.current = null;
+      congratsSoundRef.current = null;
+    });
+
+    return () => {
+      mounted = false;
+      if (fireworksTimerRef.current) {
+        clearTimeout(fireworksTimerRef.current);
+      }
+      const matchSound = matchSoundRef.current;
+      const congratsSound = congratsSoundRef.current;
+      matchSoundRef.current = null;
+      congratsSoundRef.current = null;
+      if (matchSound) {
+        matchSound.unloadAsync();
+      }
+      if (congratsSound) {
+        congratsSound.unloadAsync();
+      }
+    };
+  }, []);
 
   const cellSize = useMemo(() => {
     const availableWidth =
@@ -83,6 +132,16 @@ export default function App() {
       return;
     }
 
+    const playMatchSound = async (): Promise<void> => {
+      const sound = matchSoundRef.current;
+      if (!sound) {
+        return;
+      }
+      await sound.replayAsync();
+    };
+
+    playMatchSound().catch(() => undefined);
+
     matchAnim.setValue(0);
     Animated.sequence([
       Animated.timing(matchAnim, {
@@ -98,6 +157,32 @@ export default function App() {
     ]).start();
   }, [matchAnim, matchedCellKeys]);
 
+  useEffect(() => {
+    const isFinalWin = won && gameOver;
+    if (isFinalWin && !prevFinalWinRef.current) {
+      const playCongratsSound = async (): Promise<void> => {
+        const sound = congratsSoundRef.current;
+        if (!sound) {
+          return;
+        }
+        await sound.replayAsync();
+      };
+
+      playCongratsSound().catch(() => undefined);
+      setShowFireworks(true);
+
+      if (fireworksTimerRef.current) {
+        clearTimeout(fireworksTimerRef.current);
+      }
+      fireworksTimerRef.current = setTimeout(() => {
+        setShowFireworks(false);
+      }, 4500);
+    }
+
+    prevFinalWinRef.current = isFinalWin;
+  }, [gameOver, won]);
+
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -109,19 +194,6 @@ export default function App() {
         <View style={styles.container}>
         <View style={styles.topRow}>
           <Text style={styles.title}>Candy Break</Text>
-          <Pressable
-            style={styles.musicButton}
-            onPress={toggleMusic}
-            disabled={!canPlayMusic}
-          >
-            <Text style={styles.musicButtonText}>
-              {canPlayMusic
-                ? isMusicOn
-                  ? 'Music: On'
-                  : 'Music: Off'
-                : 'Music unavailable'}
-            </Text>
-          </Pressable>
         </View>
 
         <View style={styles.statsRow}>
@@ -212,7 +284,9 @@ export default function App() {
             <Text style={styles.controlText}>Restart</Text>
           </Pressable>
         </View>
+
         </View>
+        <Fireworks visible={showFireworks} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -327,19 +401,6 @@ const styles = StyleSheet.create({
   goalText: {
     color: '#fdf0d5',
     fontSize: 13,
-    fontWeight: '700',
-  },
-  musicButton: {
-    minWidth: 110,
-    borderRadius: 999,
-    backgroundColor: '#3a506b',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  musicButtonText: {
-    color: '#fdf0d5',
-    fontSize: 12,
     fontWeight: '700',
   },
   boardContainer: {

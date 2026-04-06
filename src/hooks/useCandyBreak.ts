@@ -29,8 +29,22 @@ interface IUseCandyBreakResult {
   restart: () => void;
 }
 
-const EASY_LEVEL = 1;
+const START_LEVEL = 1;
+const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
+const SHAPE_GOALS = [35, 50, 75, 90, 120];
+const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
+const LEVEL_MOVES = [20, 18, 16, 14, 12];
+
+const getMovesForLevel = (level: number): number => {
+  return LEVEL_MOVES[level - 1] ?? LEVEL_MOVES[LEVEL_MOVES.length - 1] ?? GAME_CONFIG.easyMoves;
+};
+
+const getGoalForShape = (shapeIndex: number, level: number): number => {
+  const baseGoal = SHAPE_GOALS[shapeIndex] ?? GAME_CONFIG.easyGoal;
+  const multiplier = LEVEL_GOAL_MULTIPLIERS[level - 1] ?? LEVEL_GOAL_MULTIPLIERS[LEVEL_GOAL_MULTIPLIERS.length - 1] ?? 1;
+  return Math.round(baseGoal * multiplier);
+};
 
 const createBoardForShape = (shapeIndex: number): IBoard => {
   const mask = GAME_SHAPES[shapeIndex]?.mask ?? GAME_SHAPES[0].mask;
@@ -38,6 +52,7 @@ const createBoardForShape = (shapeIndex: number): IBoard => {
 };
 
 export const useCandyBreak = (): IUseCandyBreakResult => {
+  const [level, setLevel] = useState(START_LEVEL);
   const [shapeIndex, setShapeIndex] = useState(0);
   const [board, setBoard] = useState<IBoard>(() => createBoardForShape(0));
   const [selectedCell, setSelectedCell] = useState<IPosition | null>(null);
@@ -45,8 +60,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [isResolving, setIsResolving] = useState(false);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
-  const [movesLeft, setMovesLeft] = useState(GAME_CONFIG.easyMoves);
-  const [goalRemaining, setGoalRemaining] = useState(GAME_CONFIG.easyGoal);
+  const [movesLeft, setMovesLeft] = useState(() => getMovesForLevel(START_LEVEL));
+  const [goalRemaining, setGoalRemaining] = useState(() => getGoalForShape(0, START_LEVEL));
   const [won, setWon] = useState(false);
   const [gameOver, setGameOver] = useState(false);
 
@@ -127,8 +142,37 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         setIsResolving(false);
 
         if (nextGoalRemaining === 0) {
-          setWon(true);
-          setGameOver(true);
+          const isLastShape = shapeIndex >= GAME_SHAPES.length - 1;
+          if (isLastShape) {
+            const isLastLevel = level >= MAX_LEVEL;
+            if (!isLastLevel) {
+              const nextLevel = level + 1;
+              setLevel(nextLevel);
+              setShapeIndex(0);
+              setBoard(createBoardForShape(0));
+              setSelectedCell(null);
+              setMatchedCellKeys([]);
+              setIsResolving(false);
+              setCombo(0);
+              setMovesLeft(getMovesForLevel(nextLevel));
+              setGoalRemaining(getGoalForShape(0, nextLevel));
+              return;
+            }
+
+            setWon(true);
+            setGameOver(true);
+            return;
+          }
+
+          const nextShapeIndex = shapeIndex + 1;
+          setShapeIndex(nextShapeIndex);
+          setBoard(createBoardForShape(nextShapeIndex));
+          setSelectedCell(null);
+          setMatchedCellKeys([]);
+          setIsResolving(false);
+          setCombo(0);
+          setMovesLeft(getMovesForLevel(level));
+          setGoalRemaining(getGoalForShape(nextShapeIndex, level));
           return;
         }
 
@@ -137,7 +181,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         }
       }, MATCH_ANIMATION_MS);
     },
-    [board, gameOver, goalRemaining, isResolving, movesLeft, selectedCell, shapeMask, won],
+    [board, gameOver, goalRemaining, isResolving, level, movesLeft, selectedCell, shapeIndex, shapeMask, won],
   );
 
   const restart = useCallback(() => {
@@ -147,11 +191,11 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setIsResolving(false);
     setScore(0);
     setCombo(0);
-    setMovesLeft(GAME_CONFIG.easyMoves);
-    setGoalRemaining(GAME_CONFIG.easyGoal);
+    setMovesLeft(getMovesForLevel(level));
+    setGoalRemaining(getGoalForShape(shapeIndex, level));
     setWon(false);
     setGameOver(false);
-  }, [shapeIndex]);
+  }, [level, shapeIndex]);
 
   const cycleShape = useCallback(() => {
     const nextIndex = (shapeIndex + 1) % GAME_SHAPES.length;
@@ -162,14 +206,13 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setIsResolving(false);
     setScore(0);
     setCombo(0);
-    setMovesLeft(GAME_CONFIG.easyMoves);
-    setGoalRemaining(GAME_CONFIG.easyGoal);
+    setMovesLeft(getMovesForLevel(level));
+    setGoalRemaining(getGoalForShape(nextIndex, level));
     setWon(false);
     setGameOver(false);
-  }, [shapeIndex]);
+  }, [level, shapeIndex]);
 
-  const level = EASY_LEVEL;
-  const goal = useMemo(() => GAME_CONFIG.easyGoal, []);
+  const goal = useMemo(() => getGoalForShape(shapeIndex, level), [level, shapeIndex]);
 
   return {
     board,
