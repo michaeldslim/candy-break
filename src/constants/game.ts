@@ -1,12 +1,35 @@
 import { ICandyBreak, IGameConfig, IGameShape } from '../types';
 
+export const GAME_BASE_ROWS = 8;
+export const GAME_BASE_COLS = 8;
+export const GAME_BASE_MIN_MATCH = 3;
+export const GAME_BASE_EASY_MOVES = 20;
+export const GAME_BASE_EASY_GOAL = 35;
+export const GAME_BASE_EASY_COLOR_KINDS = 4;
+
+export const SCORE_BASE_POINTS = 15;
+export const SCORE_EXTRA_TILE_POINTS = 5;
+export const SCORE_COMBO_POINTS = 10;
+
+export const FIREWORK_COLORS = [
+  '#FF6B6B',
+  '#FFD93D',
+  '#6BCB77',
+  '#4D96FF',
+  '#C084FC',
+  '#FF9F43',
+  '#FF6BFF',
+];
+export const FIREWORK_NUM_BURSTS = 10;
+export const FIREWORK_PARTICLES_PER_BURST = 10;
+
 export const GAME_CONFIG: IGameConfig = {
-  rows: 8,
-  cols: 8,
-  minMatch: 3,
-  easyMoves: 20,
-  easyGoal: 35,
-  easyColorKinds: 4,
+  rows: GAME_BASE_ROWS,
+  cols: GAME_BASE_COLS,
+  minMatch: GAME_BASE_MIN_MATCH,
+  easyMoves: GAME_BASE_EASY_MOVES,
+  easyGoal: GAME_BASE_EASY_GOAL,
+  easyColorKinds: GAME_BASE_EASY_COLOR_KINDS,
 };
 
 export const GAME_SHAPES: IGameShape[] = [

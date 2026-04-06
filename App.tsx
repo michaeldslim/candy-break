@@ -41,6 +41,7 @@ export default function App() {
     score,
     level,
     tapCell,
+    cycleShape,
     restart,
   } = useCandyBreak();
 
@@ -264,6 +265,9 @@ export default function App() {
           <Pressable style={styles.controlButton} onPress={restart}>
             <Text style={styles.controlText}>Restart</Text>
           </Pressable>
+          <Pressable style={[styles.controlButton, styles.changeShapeButton]} onPress={cycleShape}>
+            <Text style={[styles.controlText, styles.changeShapeText]}>Change Shape</Text>
+          </Pressable>
         </View>
 
         </View>
@@ -279,7 +283,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b132b',
   },
   headerContainer: {
-    paddingTop: ANDROID_TOP_PADDING,
+    paddingTop: ANDROID_TOP_PADDING + 20,
     paddingHorizontal: 12,
   },
   scrollContent: {
@@ -381,7 +385,7 @@ const styles = StyleSheet.create({
   controlsRow: {
     marginTop: 8,
     width: '100%',
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -395,9 +399,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#3a506b',
   },
+  changeShapeButton: {
+    marginTop: 8,
+    backgroundColor: '#5bc0be',
+  },
   controlText: {
     color: '#fdf0d5',
     fontSize: 16,
     fontWeight: '700',
+  },
+  changeShapeText: {
+    color: '#0b132b',
   },
 });

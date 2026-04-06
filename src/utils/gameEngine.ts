@@ -1,4 +1,9 @@
-import { COLOR_POOL } from '../constants/game';
+import {
+  COLOR_POOL,
+  SCORE_BASE_POINTS,
+  SCORE_COMBO_POINTS,
+  SCORE_EXTRA_TILE_POINTS,
+} from '../constants/game';
 import { IBoard, ICandyBreak, IPosition, IResolveResult, IScoreResult } from '../types';
 
 const keyOf = (row: number, col: number): string => `${row}:${col}`;
@@ -273,13 +278,12 @@ export const scoreClear = (clearedTiles: number, comboCount: number): IScoreResu
     return { points: 0, comboAwarded: 0 };
   }
 
-  const base = 50;
   const extraTiles = Math.max(0, clearedTiles - 3);
-  const tileBonus = extraTiles * 20;
-  const comboAwarded = comboCount > 1 ? (comboCount - 1) * 30 : 0;
+  const tileBonus = extraTiles * SCORE_EXTRA_TILE_POINTS;
+  const comboAwarded = comboCount > 1 ? (comboCount - 1) * SCORE_COMBO_POINTS : 0;
 
   return {
-    points: base + tileBonus + comboAwarded,
+    points: SCORE_BASE_POINTS + tileBonus + comboAwarded,
     comboAwarded,
   };
 };

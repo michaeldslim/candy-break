@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Animated, View, useWindowDimensions } from 'react-native';
-
-const COLORS = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#C084FC', '#FF9F43', '#FF6BFF'];
-const NUM_BURSTS = 10;
-const PARTICLES_PER_BURST = 10;
+import {
+  FIREWORK_COLORS,
+  FIREWORK_NUM_BURSTS,
+  FIREWORK_PARTICLES_PER_BURST,
+} from '../constants/game';
 
 interface IParticleConfig {
   dx: number;
@@ -23,21 +24,23 @@ interface IFireworksProps {
   visible: boolean;
 }
 
-const BURST_CONFIGS: IParticleConfig[] = Array.from({ length: NUM_BURSTS }, (_, burstIndex) => {
+const BURST_CONFIGS: IParticleConfig[] = Array.from({ length: FIREWORK_NUM_BURSTS }, (_, burstIndex) => {
   const burstXRatio = 0.1 + (burstIndex % 3) * 0.35 + Math.random() * 0.1;
   const burstYRatio = 0.1 + Math.floor(burstIndex / 3) * 0.4 + Math.random() * 0.15;
   const delay = burstIndex * 250;
 
-  return Array.from({ length: PARTICLES_PER_BURST }, (_, particleIndex) => {
+  return Array.from({ length: FIREWORK_PARTICLES_PER_BURST }, (_, particleIndex) => {
     const angle =
-      (particleIndex / PARTICLES_PER_BURST) * Math.PI * 2 +
+      (particleIndex / FIREWORK_PARTICLES_PER_BURST) * Math.PI * 2 +
       (Math.random() * 0.4 - 0.2);
     const radius = 90 + Math.random() * 80;
 
     return {
       dx: Math.cos(angle) * radius,
       dy: Math.sin(angle) * radius,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)] ?? COLORS[0],
+      color:
+        FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)] ??
+        FIREWORK_COLORS[0],
       size: 8 + Math.random() * 8,
       burstXRatio,
       burstYRatio,
