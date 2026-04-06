@@ -34,17 +34,13 @@ export default function App() {
     selectedCell,
     matchedCellKeys,
     isResolving,
-    shapeLabel,
     goal,
     goalRemaining,
-    movesLeft,
     gameOver,
     won,
     score,
     level,
-    combo,
     tapCell,
-    cycleShape,
     restart,
   } = useCandyBreak();
 
@@ -186,16 +182,17 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
+      <View style={styles.headerContainer}>
+        <View style={styles.topRow}>
+          <Text style={styles.title}>Candy Break</Text>
+        </View>
+      </View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         bounces={false}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-        <View style={styles.topRow}>
-          <Text style={styles.title}>Candy Break</Text>
-        </View>
-
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Score</Text>
@@ -206,24 +203,9 @@ export default function App() {
             <Text style={styles.statValue}>{level}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Combo</Text>
-            <Text style={styles.statValue}>{combo}</Text>
+            <Text style={styles.statLabel}>Goal</Text>
+            <Text style={styles.statValue}>{goalProgress} / {goal}</Text>
           </View>
-        </View>
-
-        <View style={styles.modeRow}>
-          <View style={styles.nextCard}>
-            <Text style={styles.nextLabel}>Mode: Easy</Text>
-            <Text style={styles.shapeLabel}>{shapeLabel}</Text>
-          </View>
-          <Pressable style={styles.nextRestartButton} onPress={cycleShape}>
-            <Text style={styles.nextRestartText}>Change Shape</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.goalCard}>
-          <Text style={styles.goalText}>Goal: {goalProgress} / {goal}</Text>
-          <Text style={styles.goalText}>Moves: {movesLeft}</Text>
         </View>
 
         <View style={styles.boardContainer}>
@@ -242,7 +224,7 @@ export default function App() {
                       backgroundColor: shapeMask[rowIndex]?.[colIndex]
                         ? cell
                           ? cell.color
-                          : '#f5f3ea'
+                          : 'transparent'
                         : 'transparent',
                       borderWidth:
                         selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
@@ -276,7 +258,6 @@ export default function App() {
 
         <View style={styles.helpCard}>
           <Text style={styles.helpText}>Tap one cube, then tap an adjacent cube to swap.</Text>
-          <Text style={styles.helpText}>Only swaps that create a match are accepted.</Text>
         </View>
 
         <View style={styles.controlsRow}>
@@ -297,12 +278,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0b132b',
   },
+  headerContainer: {
+    paddingTop: ANDROID_TOP_PADDING,
+    paddingHorizontal: 12,
+  },
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 34,
   },
   container: {
-    paddingTop: ANDROID_TOP_PADDING,
+    paddingTop: 14,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
@@ -344,69 +329,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  modeRow: {
-    marginTop: 8,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  nextCard: {
-    flex: 1,
-    backgroundColor: '#1c2541',
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  nextLabel: {
-    color: '#a9bcd0',
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  shapeLabel: {
-    color: '#fdf0d5',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  nextRestartButton: {
-    minWidth: 120,
-    borderRadius: 10,
-    backgroundColor: '#5bc0be',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextRestartText: {
-    color: '#0b132b',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  goalCard: {
-    marginTop: 8,
-    width: '100%',
-    borderRadius: 12,
-    backgroundColor: '#1c2541',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  goalText: {
-    color: '#fdf0d5',
-    fontSize: 13,
-    fontWeight: '700',
-  },
   boardContainer: {
     marginTop: 8,
     borderRadius: 12,
-    backgroundColor: '#f5f3ea',
+    backgroundColor: 'transparent',
     padding: BOARD_CONTAINER_PADDING,
     position: 'relative',
   },
@@ -438,6 +364,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   helpCard: {
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 10,
     width: '100%',
     borderRadius: 10,
@@ -447,7 +375,7 @@ const styles = StyleSheet.create({
   },
   helpText: {
     color: '#a9bcd0',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   controlsRow: {
