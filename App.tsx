@@ -41,7 +41,6 @@ export default function App() {
     score,
     level,
     tapCell,
-    cycleShape,
     restart,
   } = useCandyBreak();
 
@@ -194,82 +193,78 @@ export default function App() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Score</Text>
-            <Text style={styles.statValue}>{score}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Level</Text>
-            <Text style={styles.statValue}>{level}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Goal</Text>
-            <Text style={styles.statValue}>{goalProgress} / {goal}</Text>
-          </View>
-        </View>
-
-        <View style={styles.boardContainer}>
-          {board.map((row, rowIndex) => (
-            <View key={`row-${rowIndex}`} style={styles.boardRow}>
-              {row.map((cell, colIndex) => (
-                <AnimatedPressable
-                  key={`cell-${rowIndex}-${colIndex}`}
-                  onPress={() => tapCell(rowIndex, colIndex)}
-                  disabled={!shapeMask[rowIndex]?.[colIndex] || gameOver || isResolving}
-                  style={[
-                    styles.cell,
-                    {
-                      width: cellSize,
-                      height: cellSize,
-                      backgroundColor: shapeMask[rowIndex]?.[colIndex]
-                        ? cell
-                          ? cell.color
-                          : 'transparent'
-                        : 'transparent',
-                      borderWidth:
-                        selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
-                      borderColor:
-                        selectedCell?.row === rowIndex && selectedCell?.col === colIndex
-                          ? '#fdf0d5'
-                          : '#0f1a34',
-                      opacity: shapeMask[rowIndex]?.[colIndex] ? 1 : 0,
-                    },
-                    matchedSet.has(`${rowIndex}:${colIndex}`)
-                      ? {
-                          transform: [{ scale: matchScale }],
-                          opacity: matchOpacity,
-                        }
-                      : null,
-                  ]}
-                />
-              ))}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Score</Text>
+              <Text style={styles.statValue}>{score}</Text>
             </View>
-          ))}
-
-          {gameOver ? (
-            <View style={styles.gameOverOverlay}>
-              <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
-              <Text style={styles.gameOverBody}>
-                {won ? 'Great matching! Easy goal completed.' : 'No moves left. Try another shape.'}
-              </Text>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Level</Text>
+              <Text style={styles.statValue}>{level}</Text>
             </View>
-          ) : null}
-        </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Goal</Text>
+              <Text style={styles.statValue}>{goalProgress} / {goal}</Text>
+            </View>
+          </View>
 
-        <View style={styles.helpCard}>
-          <Text style={styles.helpText}>Tap one cube, then tap an adjacent cube to swap.</Text>
-        </View>
+          <View style={styles.boardContainer}>
+            {board.map((row, rowIndex) => (
+              <View key={`row-${rowIndex}`} style={styles.boardRow}>
+                {row.map((cell, colIndex) => (
+                  <AnimatedPressable
+                    key={`cell-${rowIndex}-${colIndex}`}
+                    onPress={() => tapCell(rowIndex, colIndex)}
+                    disabled={!shapeMask[rowIndex]?.[colIndex] || gameOver || isResolving}
+                    style={[
+                      styles.cell,
+                      {
+                        width: cellSize,
+                        height: cellSize,
+                        backgroundColor: shapeMask[rowIndex]?.[colIndex]
+                          ? cell
+                            ? cell.color
+                            : 'transparent'
+                          : 'transparent',
+                        borderWidth:
+                          selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
+                        borderColor:
+                          selectedCell?.row === rowIndex && selectedCell?.col === colIndex
+                            ? '#fdf0d5'
+                            : '#0f1a34',
+                        opacity: shapeMask[rowIndex]?.[colIndex] ? 1 : 0,
+                      },
+                      matchedSet.has(`${rowIndex}:${colIndex}`)
+                        ? {
+                            transform: [{ scale: matchScale }],
+                            opacity: matchOpacity,
+                          }
+                        : null,
+                    ]}
+                  />
+                ))}
+              </View>
+            ))}
 
-        <View style={styles.controlsRow}>
-          <Pressable style={styles.controlButton} onPress={restart}>
-            <Text style={styles.controlText}>Restart</Text>
-          </Pressable>
-          <Pressable style={[styles.controlButton, styles.changeShapeButton]} onPress={cycleShape}>
-            <Text style={[styles.controlText, styles.changeShapeText]}>Change Shape</Text>
-          </Pressable>
-        </View>
+            {gameOver ? (
+              <View style={styles.gameOverOverlay}>
+                <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
+                <Text style={styles.gameOverBody}>
+                  {won ? 'Great matching! Easy goal completed.' : 'No moves left. Try another shape.'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
+          <View style={styles.helpCard}>
+            <Text style={styles.helpText}>Tap one cube, then tap an adjacent cube to swap.</Text>
+          </View>
+
+          <View style={styles.controlsRow}>
+            <Pressable style={styles.controlButton} onPress={restart}>
+              <Text style={styles.controlText}>Restart</Text>
+            </Pressable>
+          </View>
         </View>
         <Fireworks visible={showFireworks} />
       </ScrollView>
@@ -399,16 +394,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#3a506b',
   },
-  changeShapeButton: {
-    marginTop: 8,
-    backgroundColor: '#5bc0be',
-  },
   controlText: {
     color: '#fdf0d5',
     fontSize: 16,
     fontWeight: '700',
-  },
-  changeShapeText: {
-    color: '#0b132b',
   },
 });
