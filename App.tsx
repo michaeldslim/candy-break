@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
   },
   container: {
-    paddingTop: 14,
+    paddingTop: 34,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
