@@ -286,6 +286,32 @@ export const trySwapAndResolve = (
   };
 };
 
+export interface ICascadeStep {
+  matchedPositions: IPosition[];
+  nextBoard: IBoard;
+}
+
+export const resolveAllSteps = (
+  board: IBoard,
+  mask: boolean[][],
+  minMatch: number,
+  maxKinds: number,
+): ICascadeStep[] => {
+  const steps: ICascadeStep[] = [];
+  let currentBoard = cloneBoard(board);
+
+  while (true) {
+    const matches = findMatches(currentBoard, mask, minMatch);
+    if (matches.length === 0) break;
+    const cleared = clearMatchedCells(currentBoard, matches);
+    const next = dropAndRefill(cleared, mask, maxKinds);
+    steps.push({ matchedPositions: matches, nextBoard: next });
+    currentBoard = next;
+  }
+
+  return steps;
+};
+
 export const findHint = (
   board: IBoard,
   mask: boolean[][],

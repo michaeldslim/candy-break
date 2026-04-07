@@ -8,6 +8,7 @@ import {
   findHint,
   getRandomPlayablePosition,
   isPlayableCell,
+  resolveAllSteps,
   scoreClear,
   trySwapAndResolve,
 } from '../utils/gameEngine';
@@ -39,6 +40,7 @@ interface IUseCandyBreakResult {
 const START_LEVEL = 1;
 const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
+const DROP_PAUSE_MS = 140;
 const SHAPE_GOALS = [40, 55, 65, 45, 55];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
@@ -196,28 +198,31 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         return;
       }
 
-      const clearScore = scoreClear(result.totalCleared, result.comboCount);
-      const nextMoves = Math.max(0, movesLeft - 1);
-      const goalReduction = result.totalCleared;
-      const nextGoalRemaining = Math.max(0, goalRemaining - goalReduction);
+      // Compute all cascade steps synchronously upfront
+      const steps = resolveAllSteps(result.previewBoard, shapeMask, GAME_CONFIG.minMatch, GAME_CONFIG.easyColorKinds);
+      if (steps.length === 0) {
+        setSelectedCell(tapped);
+        return;
+      }
 
-      const matchedKeys = result.matchedPositions.map(({ row: matchedRow, col: matchedCol }) =>
-        `${matchedRow}:${matchedCol}`,
-      );
+      const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
+      const comboCount = steps.length;
+      const finalBoard = steps[steps.length - 1]!.nextBoard;
+      const clearScore = scoreClear(totalCleared, comboCount);
+      const nextMoves = Math.max(0, movesLeft - 1);
+      const nextGoalRemaining = Math.max(0, goalRemaining - totalCleared);
 
       setCombo(0);
       setIsResolving(true);
-      setMatchedCellKeys(matchedKeys);
-      setBoard(result.previewBoard);
       setSelectedCell(null);
 
       if (resolveTimerRef.current) {
         clearTimeout(resolveTimerRef.current);
       }
 
-      resolveTimerRef.current = setTimeout(() => {
-        setBoard(result.board);
-        setCombo(result.comboCount);
+      const finalizeMove = (): void => {
+        setBoard(finalBoard);
+        setCombo(comboCount);
         setScore((prev) => {
           const next = prev + clearScore.points;
           if (next > bestScore) {
@@ -231,7 +236,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         setMatchedCellKeys([]);
         setIsResolving(false);
 
-        // Spawn bomb after 40% of moves are used (once per stage)
         const spawnThreshold = Math.floor(getMovesForLevel(level) * 0.6);
         if (bombPosition === null && nextMoves === spawnThreshold && nextGoalRemaining > 0) {
           setBombPosition(getRandomPlayablePosition(shapeMask));
@@ -255,12 +259,10 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
               setBombPosition(null);
               return;
             }
-
             setWon(true);
             setGameOver(true);
             return;
           }
-
           const nextShapeIndex = shapeIndex + 1;
           setShapeIndex(nextShapeIndex);
           setBoard(createBoardForShape(nextShapeIndex));
@@ -277,7 +279,32 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         if (nextMoves === 0) {
           setGameOver(true);
         }
-      }, MATCH_ANIMATION_MS);
+      };
+
+      const playStep = (stepIndex: number): void => {
+        const step = steps[stepIndex]!;
+        const displayBoard = stepIndex === 0 ? result.previewBoard : steps[stepIndex - 1]!.nextBoard;
+
+        setBoard(displayBoard);
+        setMatchedCellKeys(step.matchedPositions.map(({ row: r, col: c }) => `${r}:${c}`));
+
+        resolveTimerRef.current = setTimeout(() => {
+          setBoard(step.nextBoard);
+          setMatchedCellKeys([]);
+
+          if (stepIndex === steps.length - 1) {
+            resolveTimerRef.current = setTimeout(() => {
+              finalizeMove();
+            }, DROP_PAUSE_MS);
+          } else {
+            resolveTimerRef.current = setTimeout(() => {
+              playStep(stepIndex + 1);
+            }, DROP_PAUSE_MS);
+          }
+        }, MATCH_ANIMATION_MS);
+      };
+
+      playStep(0);
     },
     [board, bombPosition, bestScore, gameOver, goalRemaining, isResolving, level, movesLeft, selectedCell, shapeIndex, shapeMask, won],
   );
