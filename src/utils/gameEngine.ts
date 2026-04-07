@@ -60,8 +60,8 @@ export const createInitialBoard = (mask: boolean[][], maxKinds: number): IBoard 
         const up1 = board[row - 1]?.[col];
         const up2 = board[row - 2]?.[col];
 
-        const createsHorizontal = left1 && left2 && left1.color === nextCube.color && left2.color === nextCube.color;
-        const createsVertical = up1 && up2 && up1.color === nextCube.color && up2.color === nextCube.color;
+        const createsHorizontal = left1 && left2 && left1.candyBreak === nextCube.candyBreak && left2.candyBreak === nextCube.candyBreak;
+        const createsVertical = up1 && up2 && up1.candyBreak === nextCube.candyBreak && up2.candyBreak === nextCube.candyBreak;
 
         if (!createsHorizontal && !createsVertical) {
           break;
@@ -105,7 +105,7 @@ const findMatches = (board: IBoard, mask: boolean[][], minMatch: number): IPosit
     for (let col = 0; col <= cols; col += 1) {
       const valid = col < cols && isPlayableCell(mask, row, col);
       const cell = valid ? board[row][col] : null;
-      const color = cell?.color ?? '';
+      const color = cell?.candyBreak ?? '';
 
       if (valid && cell && color === runColor) {
         continue;
@@ -135,7 +135,7 @@ const findMatches = (board: IBoard, mask: boolean[][], minMatch: number): IPosit
     for (let row = 0; row <= rows; row += 1) {
       const valid = row < rows && isPlayableCell(mask, row, col);
       const cell = valid ? board[row][col] : null;
-      const color = cell?.color ?? '';
+      const color = cell?.candyBreak ?? '';
 
       if (valid && cell && color === runColor) {
         continue;

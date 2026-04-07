@@ -3,6 +3,7 @@ import { Audio } from 'expo-av';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Platform,
   Pressable,
   SafeAreaView,
@@ -16,7 +17,13 @@ import {
 import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
-import { CANDY_SYMBOLS } from './src/constants/game';
+
+const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
+  Red:  require('./assets/images/candy_red.png'),
+  Blue: require('./assets/images/candy_mint.png'),
+  Gold: require('./assets/images/candy_gold.png'),
+  Mint: require('./assets/images/candy_blue.png'),
+};
 
 const HORIZONTAL_PADDING = 24;
 const BOARD_CONTAINER_PADDING = 12;
@@ -51,12 +58,15 @@ export default function App() {
     restart,
     bombPosition,
     requestHint,
+    stageStars,
+    bestStars,
   } = useCandyBreak();
 
   const hintSet = useMemo(() => new Set(hintCells?.map(p => `${p.row}:${p.col}`) ?? []), [hintCells]);
 
   const matchAnim = useRef(new Animated.Value(0)).current;
   const comboAnim = useRef(new Animated.Value(0)).current;
+  const stageCompleteAnim = useRef(new Animated.Value(0)).current;
   const bombPulseAnim = useRef(new Animated.Value(0)).current;
   const bombPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const hintPulseAnim = useRef(new Animated.Value(0)).current;
@@ -66,7 +76,6 @@ export default function App() {
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevFinalWinRef = useRef(false);
   const [showFireworks, setShowFireworks] = useState(false);
-  const [colorBlind, setColorBlind] = useState(false);
   const [showInstructionPage, setShowInstructionPage] = useState(true);
 
   // Start/stop bomb pulse loop
@@ -261,6 +270,17 @@ export default function App() {
   }, [matchAnim, matchedCellKeys]);
 
   useEffect(() => {
+    if (stageStars === null) return;
+    stageCompleteAnim.setValue(0);
+    Animated.spring(stageCompleteAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 80,
+      useNativeDriver: true,
+    }).start();
+  }, [stageStars, stageCompleteAnim]);
+
+  useEffect(() => {
     if (combo < 2) return;
     comboAnim.setValue(0);
     Animated.timing(comboAnim, {
@@ -309,11 +329,12 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.headerContainer}>
+        <Text style={styles.title}>Candy Break</Text>
         <View style={styles.topRow}>
-          <Text style={styles.title}>Candy Break</Text>
-          <View style={styles.bestContainer}>
-            <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
-          </View>
+          <Text style={styles.starsValue}>
+            STARS: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
+          </Text>
+          <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
         </View>
       </View>
       <ScrollView
@@ -394,9 +415,7 @@ export default function App() {
                             width: cellSize,
                             height: cellSize,
                             backgroundColor: isPlayable
-                              ? cell
-                                ? cell.color
-                                : 'transparent'
+                              ? 'transparent'
                               : 'transparent',
                             borderWidth:
                               selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
@@ -421,10 +440,12 @@ export default function App() {
                               : null,
                         ]}
                       >
-                        {colorBlind && cell && isPlayable ? (
-                          <Text style={{ fontSize: cellSize * 0.62, color: '#d8d8d8', fontWeight: '900', lineHeight: cellSize * 0.72 }}>
-                            {CANDY_SYMBOLS[cell.candyBreak] ?? '?'}
-                          </Text>
+                        {cell && isPlayable ? (
+                          <Image
+                            source={CANDY_IMAGES[cell.candyBreak]}
+                            style={{ width: cellSize * 0.92, height: cellSize * 0.92 }}
+                            resizeMode="contain"
+                          />
                         ) : null}
                       </AnimatedPressable>
                     );
@@ -439,6 +460,31 @@ export default function App() {
                   {won ? 'Great matching! All shapes completed.' : `No moves left on ${shapeLabel}. Tap Restart to try again.`}
                 </Text>
               </View>
+            ) : null}
+
+            {stageStars !== null ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.stageCompleteOverlay,
+                  {
+                    opacity: stageCompleteAnim,
+                    transform: [
+                      {
+                        scale: stageCompleteAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.6, 1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <Text style={styles.stageCompleteTitle}>Stage Clear!</Text>
+                <Text style={styles.stageCompleteStars}>
+                  {[1, 2, 3].map((i) => (i <= stageStars ? '★' : '☆')).join('  ')}
+                </Text>
+              </Animated.View>
             ) : null}
 
             {combo >= 2 ? (
@@ -468,12 +514,6 @@ export default function App() {
             <Pressable style={styles.controlButton} onPress={requestHint} disabled={gameOver || isResolving}>
               <Text style={styles.controlText}>Hint</Text>
             </Pressable>
-            <Pressable
-              style={[styles.controlButton, colorBlind && styles.controlButtonActive]}
-              onPress={() => setColorBlind((v) => !v)}
-            >
-              <Text style={styles.controlText}>{colorBlind ? '♿ ON' : '♿ OFF'}</Text>
-            </Pressable>
           </View>
         </View>
         <Fireworks visible={showFireworks} />
@@ -496,7 +536,7 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
   },
   container: {
-    paddingTop: 34,
+    paddingTop: 28,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
@@ -519,6 +559,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#fdf0d5',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  starsValue: {
+    color: '#ffd166',
+    fontSize: 15,
+    fontWeight: '700',
   },
   statsRow: {
     marginTop: 8,
@@ -593,6 +640,33 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
+  },
+  stageCompleteOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 19, 43, 0.82)',
+    borderRadius: 12,
+  },
+  stageCompleteTitle: {
+    color: '#ffd166',
+    fontSize: 30,
+    fontWeight: '900',
+    textShadowColor: '#0b132b',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  stageCompleteStars: {
+    color: '#ffd166',
+    fontSize: 42,
+    marginTop: 10,
+    textShadowColor: '#0b132b',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   comboOverlay: {
     position: 'absolute',

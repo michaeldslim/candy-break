@@ -1,5 +1,4 @@
 export interface ICandyBreak {
-  color: string;
   candyBreak: string;
 }
 

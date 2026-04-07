@@ -107,23 +107,8 @@ export const GAME_SHAPES: IGameShape[] = [
 ];
 
 export const COLOR_POOL: ICandyBreak[] = [
-  { color: '#ef476f', candyBreak: 'Red' },
-  { color: '#118ab2', candyBreak: 'Blue' },
-  { color: '#ffd166', candyBreak: 'Gold' },
-  { color: '#06d6a0', candyBreak: 'Mint' },
-  { color: '#ef476f', candyBreak: 'Red' },
-  { color: '#118ab2', candyBreak: 'Blue' },
-  { color: '#ffd166', candyBreak: 'Gold' },
-  { color: '#06d6a0', candyBreak: 'Mint' },
-  { color: '#ef476f', candyBreak: 'Red' },
-  { color: '#118ab2', candyBreak: 'Blue' },
-  { color: '#ffd166', candyBreak: 'Gold' },
-  { color: '#06d6a0', candyBreak: 'Mint' },
+  { candyBreak: 'Red' },
+  { candyBreak: 'Blue' },
+  { candyBreak: 'Gold' },
+  { candyBreak: 'Mint' },
 ];
-
-export const CANDY_SYMBOLS: Record<string, string> = {
-  Red:  '★',
-  Blue: '●',
-  Gold: '▲',
-  Mint: '◆',
-};
