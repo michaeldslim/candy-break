@@ -197,6 +197,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         `${matchedRow}:${matchedCol}`,
       );
 
+      setCombo(0);
       setIsResolving(true);
       setMatchedCellKeys(matchedKeys);
       setBoard(result.previewBoard);
