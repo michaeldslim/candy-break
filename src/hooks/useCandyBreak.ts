@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BOMB_SCORE_BONUS, GAME_CONFIG, GAME_SHAPES } from '../constants/game';
 import { IBoard, IPosition } from '../types';
 import {
@@ -23,6 +24,7 @@ interface IUseCandyBreakResult {
   gameOver: boolean;
   won: boolean;
   score: number;
+  bestScore: number;
   level: number;
   combo: number;
   bombPosition: IPosition | null;
@@ -67,6 +69,16 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [won, setWon] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
+  const [bestScore, setBestScore] = useState(0);
+
+  // Load persisted best score on mount
+  useEffect(() => {
+    AsyncStorage.getItem('bestScore').then((value) => {
+      if (value !== null) {
+        setBestScore(parseInt(value, 10));
+      }
+    }).catch(() => undefined);
+  }, []);
 
   const currentShape = GAME_SHAPES[shapeIndex] ?? GAME_SHAPES[0];
   const shapeMask = currentShape.mask;
@@ -100,7 +112,14 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         resolveTimerRef.current = setTimeout(() => {
           setMatchedCellKeys([]);
           setIsResolving(false);
-          setScore((prev) => prev + BOMB_SCORE_BONUS);
+        setScore((prev) => {
+          const next = prev + BOMB_SCORE_BONUS;
+          if (next > bestScore) {
+            setBestScore(next);
+            AsyncStorage.setItem('bestScore', String(next)).catch(() => undefined);
+          }
+          return next;
+        });
 
           const isLastShape = shapeIndex >= GAME_SHAPES.length - 1;
           if (isLastShape) {
@@ -190,7 +209,14 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       resolveTimerRef.current = setTimeout(() => {
         setBoard(result.board);
         setCombo(result.comboCount);
-        setScore((prev) => prev + clearScore.points);
+        setScore((prev) => {
+          const next = prev + clearScore.points;
+          if (next > bestScore) {
+            setBestScore(next);
+            AsyncStorage.setItem('bestScore', String(next)).catch(() => undefined);
+          }
+          return next;
+        });
         setMovesLeft(nextMoves);
         setGoalRemaining(nextGoalRemaining);
         setMatchedCellKeys([]);
@@ -244,7 +270,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         }
       }, MATCH_ANIMATION_MS);
     },
-    [board, bombPosition, gameOver, goalRemaining, isResolving, level, movesLeft, selectedCell, shapeIndex, shapeMask, won],
+    [board, bombPosition, bestScore, gameOver, goalRemaining, isResolving, level, movesLeft, selectedCell, shapeIndex, shapeMask, won],
   );
 
   const restart = useCallback(() => {
@@ -292,6 +318,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     gameOver,
     won,
     score,
+    bestScore,
     level,
     bombPosition,
     combo,

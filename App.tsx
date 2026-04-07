@@ -41,13 +41,16 @@ export default function App() {
     gameOver,
     won,
     score,
+    bestScore,
     level,
+    combo,
     tapCell,
     restart,
     bombPosition,
   } = useCandyBreak();
 
   const matchAnim = useRef(new Animated.Value(0)).current;
+  const comboAnim = useRef(new Animated.Value(0)).current;
   const bombPulseAnim = useRef(new Animated.Value(0)).current;
   const bombPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const matchSoundRef = useRef<Audio.Sound | null>(null);
@@ -157,6 +160,19 @@ export default function App() {
     outputRange: [0.75, 1],
   });
 
+  const comboScale = comboAnim.interpolate({
+    inputRange: [0, 0.15, 0.85, 1],
+    outputRange: [0.4, 1.2, 1.0, 0],
+  });
+  const comboOpacity = comboAnim.interpolate({
+    inputRange: [0, 0.08, 0.85, 1],
+    outputRange: [0, 1, 1, 0],
+  });
+  const comboTranslateY = comboAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -28],
+  });
+
   const matchScale = matchAnim.interpolate({
     inputRange: [0, 0.25, 1],
     outputRange: [1, 1.35, 0],
@@ -196,6 +212,16 @@ export default function App() {
   }, [matchAnim, matchedCellKeys]);
 
   useEffect(() => {
+    if (combo < 2) return;
+    comboAnim.setValue(0);
+    Animated.timing(comboAnim, {
+      toValue: 1,
+      duration: 1600,
+      useNativeDriver: true,
+    }).start();
+  }, [combo, comboAnim]);
+
+  useEffect(() => {
     const isFinalWin = won && gameOver;
     if (isFinalWin && !prevFinalWinRef.current) {
       const playCongratsSound = async (): Promise<void> => {
@@ -227,6 +253,9 @@ export default function App() {
       <View style={styles.headerContainer}>
         <View style={styles.topRow}>
           <Text style={styles.title}>Candy Break</Text>
+          <View style={styles.bestContainer}>
+            <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
+          </View>
         </View>
       </View>
       <ScrollView
@@ -246,12 +275,17 @@ export default function App() {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Goal</Text>
-              <Text style={styles.statValue}>{goalProgress} / {goal}</Text>
+              <Text style={styles.statValue}>{goalProgress}/{goal}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Moves</Text>
               <Text style={[styles.statValue, movesLeft <= 5 ? styles.statValueWarn : null]}>{movesLeft}</Text>
             </View>
+          </View>
+
+          <View style={styles.shapeStageCard}>
+            <Text style={styles.shapeStageLabel}>Current Shape</Text>
+            <Text style={styles.shapeStageValue}>{shapeLabel}</Text>
           </View>
 
           <View style={styles.boardContainer}>
@@ -335,6 +369,21 @@ export default function App() {
                 </Text>
               </View>
             ) : null}
+
+            {combo >= 2 ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.comboOverlay,
+                  {
+                    transform: [{ scale: comboScale }, { translateY: comboTranslateY }],
+                    opacity: comboOpacity,
+                  },
+                ]}
+              >
+                <Text style={styles.comboText}>+combo x{combo}!</Text>
+              </Animated.View>
+            ) : null}
           </View>
 
           <View style={styles.helpCard}>
@@ -378,6 +427,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  bestContainer: {
+    alignItems: 'flex-end',
+  },
+  bestValue: {
+    color: '#ffd166',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   title: {
     fontSize: 28,
     fontWeight: '800',
@@ -419,6 +476,28 @@ const styles = StyleSheet.create({
     padding: BOARD_CONTAINER_PADDING,
     position: 'relative',
   },
+  shapeStageCard: {
+    marginTop: 8,
+    width: '100%',
+    borderRadius: 10,
+    backgroundColor: '#1c2541',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shapeStageLabel: {
+    color: '#a9bcd0',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  shapeStageValue: {
+    color: '#fdf0d5',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   boardRow: {
     flexDirection: 'row',
   },
@@ -434,6 +513,22 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
+  },
+  comboOverlay: {
+    position: 'absolute',
+    top: '40%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  comboText: {
+    color: '#ffd166',
+    fontSize: 28,
+    fontWeight: '900',
+    textShadowColor: '#0b132b',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   gameOverTitle: {
     color: '#ffb703',
