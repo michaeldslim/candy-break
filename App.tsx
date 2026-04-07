@@ -34,8 +34,10 @@ export default function App() {
     selectedCell,
     matchedCellKeys,
     isResolving,
+    shapeLabel,
     goal,
     goalRemaining,
+    movesLeft,
     gameOver,
     won,
     score,
@@ -56,7 +58,7 @@ export default function App() {
 
     const loadSounds = async (): Promise<void> => {
       const { sound } = await Audio.Sound.createAsync(
-        require('./assets/sounds/match.mp3'),
+        require('./assets/sounds/swoosh.mp3'),
       );
       const { sound: congratsSound } = await Audio.Sound.createAsync(
         require('./assets/sounds/congrats.mp3'),
@@ -114,13 +116,18 @@ export default function App() {
   const matchedSet = useMemo(() => new Set(matchedCellKeys), [matchedCellKeys]);
 
   const matchScale = matchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.72],
+    inputRange: [0, 0.25, 1],
+    outputRange: [1, 1.35, 0],
   });
 
   const matchOpacity = matchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.45],
+    inputRange: [0, 0.35, 1],
+    outputRange: [1, 1, 0],
+  });
+
+  const matchRotate = matchAnim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: ['0deg', '14deg', '-10deg'],
   });
 
   useEffect(() => {
@@ -139,18 +146,11 @@ export default function App() {
     playMatchSound().catch(() => undefined);
 
     matchAnim.setValue(0);
-    Animated.sequence([
-      Animated.timing(matchAnim, {
-        toValue: 1,
-        duration: MATCH_ANIMATION_MS / 2,
-        useNativeDriver: true,
-      }),
-      Animated.timing(matchAnim, {
-        toValue: 0,
-        duration: MATCH_ANIMATION_MS / 2,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.timing(matchAnim, {
+      toValue: 1,
+      duration: MATCH_ANIMATION_MS,
+      useNativeDriver: true,
+    }).start();
   }, [matchAnim, matchedCellKeys]);
 
   useEffect(() => {
@@ -206,6 +206,10 @@ export default function App() {
               <Text style={styles.statLabel}>Goal</Text>
               <Text style={styles.statValue}>{goalProgress} / {goal}</Text>
             </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Moves</Text>
+              <Text style={[styles.statValue, movesLeft <= 5 ? styles.statValueWarn : null]}>{movesLeft}</Text>
+            </View>
           </View>
 
           <View style={styles.boardContainer}>
@@ -236,7 +240,7 @@ export default function App() {
                       },
                       matchedSet.has(`${rowIndex}:${colIndex}`)
                         ? {
-                            transform: [{ scale: matchScale }],
+                            transform: [{ scale: matchScale }, { rotate: matchRotate }],
                             opacity: matchOpacity,
                           }
                         : null,
@@ -250,7 +254,7 @@ export default function App() {
               <View style={styles.gameOverOverlay}>
                 <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
                 <Text style={styles.gameOverBody}>
-                  {won ? 'Great matching! Easy goal completed.' : 'No moves left. Try another shape.'}
+                  {won ? 'Great matching! All shapes completed.' : `No moves left on ${shapeLabel}. Tap Restart to try again.`}
                 </Text>
               </View>
             ) : null}
@@ -327,6 +331,9 @@ const styles = StyleSheet.create({
     color: '#fdf0d5',
     fontSize: 17,
     fontWeight: '700',
+  },
+  statValueWarn: {
+    color: '#ff6b6b',
   },
   boardContainer: {
     marginTop: 8,

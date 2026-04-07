@@ -32,7 +32,7 @@ interface IUseCandyBreakResult {
 const START_LEVEL = 1;
 const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
-const SHAPE_GOALS = [35, 50, 75, 90, 120];
+const SHAPE_GOALS = [40, 55, 65, 45, 55];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 18, 16, 14, 12];
 
@@ -116,7 +116,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
       const clearScore = scoreClear(result.totalCleared, result.comboCount);
       const nextMoves = Math.max(0, movesLeft - 1);
-      const goalReduction = result.matchedPositions.length;
+      const goalReduction = result.totalCleared;
       const nextGoalRemaining = Math.max(0, goalRemaining - goalReduction);
 
       const matchedKeys = result.matchedPositions.map(({ row: matchedRow, col: matchedCol }) =>
