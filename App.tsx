@@ -45,15 +45,21 @@ export default function App() {
     bestScore,
     level,
     combo,
+    hintCells,
     tapCell,
     restart,
     bombPosition,
+    requestHint,
   } = useCandyBreak();
+
+  const hintSet = useMemo(() => new Set(hintCells?.map(p => `${p.row}:${p.col}`) ?? []), [hintCells]);
 
   const matchAnim = useRef(new Animated.Value(0)).current;
   const comboAnim = useRef(new Animated.Value(0)).current;
   const bombPulseAnim = useRef(new Animated.Value(0)).current;
   const bombPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const hintPulseAnim = useRef(new Animated.Value(0)).current;
+  const hintPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const matchSoundRef = useRef<Audio.Sound | null>(null);
   const congratsSoundRef = useRef<Audio.Sound | null>(null);
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,6 +96,36 @@ export default function App() {
       bombPulseLoopRef.current?.stop();
     };
   }, [bombPulseAnim, bombPosition]);
+
+  // Start/stop hint pulse loop
+  useEffect(() => {
+    if (hintCells && hintCells.length > 0) {
+      hintPulseAnim.setValue(0);
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(hintPulseAnim, {
+            toValue: 1,
+            duration: 380,
+            useNativeDriver: true,
+          }),
+          Animated.timing(hintPulseAnim, {
+            toValue: 0,
+            duration: 380,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      hintPulseLoopRef.current = loop;
+      loop.start();
+    } else {
+      hintPulseLoopRef.current?.stop();
+      hintPulseLoopRef.current = null;
+      hintPulseAnim.setValue(0);
+    }
+    return () => {
+      hintPulseLoopRef.current?.stop();
+    };
+  }, [hintCells, hintPulseAnim]);
 
   useEffect(() => {
     let mounted = true;
@@ -160,6 +196,15 @@ export default function App() {
   const bombOpacity = bombPulseAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.75, 1],
+  });
+
+  const hintScale = hintPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.18],
+  });
+  const hintOpacity = hintPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.7, 1],
   });
 
   const comboScale = comboAnim.interpolate({
@@ -343,11 +388,13 @@ export default function App() {
                                 : 'transparent'
                               : 'transparent',
                             borderWidth:
-                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
+                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
                             borderColor:
                               selectedCell?.row === rowIndex && selectedCell?.col === colIndex
                                 ? '#fdf0d5'
-                                : '#0f1a34',
+                                : hintSet.has(`${rowIndex}:${colIndex}`)
+                                  ? '#ffd166'
+                                  : '#0f1a34',
                             opacity: isPlayable ? 1 : 0,
                           },
                           isMatched
@@ -355,7 +402,12 @@ export default function App() {
                                 transform: [{ scale: matchScale }, { rotate: matchRotate }],
                                 opacity: matchOpacity,
                               }
-                            : null,
+                            : hintSet.has(`${rowIndex}:${colIndex}`)
+                              ? {
+                                  transform: [{ scale: hintScale }],
+                                  opacity: hintOpacity,
+                                }
+                              : null,
                         ]}
                       >
                         {colorBlind && cell && isPlayable ? (
@@ -401,6 +453,9 @@ export default function App() {
           <View style={styles.controlsRow}>
             <Pressable style={styles.controlButton} onPress={restart}>
               <Text style={styles.controlText}>Restart</Text>
+            </Pressable>
+            <Pressable style={styles.controlButton} onPress={requestHint} disabled={gameOver || isResolving}>
+              <Text style={styles.controlText}>Hint</Text>
             </Pressable>
             <Pressable
               style={[styles.controlButton, colorBlind && styles.controlButtonActive]}
@@ -579,11 +634,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   controlButton: {
-    minWidth: 130,
-    height: 46,
+    minWidth: 90,
+    height: 38,
     marginHorizontal: 3,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#3a506b',
@@ -593,7 +648,7 @@ const styles = StyleSheet.create({
   },
   controlText: {
     color: '#fdf0d5',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
   },
 });

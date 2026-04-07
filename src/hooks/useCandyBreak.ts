@@ -5,6 +5,7 @@ import { IBoard, IPosition } from '../types';
 import {
   areAdjacent,
   createInitialBoard,
+  findHint,
   getRandomPlayablePosition,
   isPlayableCell,
   scoreClear,
@@ -28,9 +29,11 @@ interface IUseCandyBreakResult {
   level: number;
   combo: number;
   bombPosition: IPosition | null;
+  hintCells: IPosition[];
   tapCell: (row: number, col: number) => void;
   cycleShape: () => void;
   restart: () => void;
+  requestHint: () => void;
 }
 
 const START_LEVEL = 1;
@@ -69,6 +72,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [won, setWon] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
+  const [hintCells, setHintCells] = useState<IPosition[]>([]);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bestScore, setBestScore] = useState(0);
 
   // Load persisted best score on mount
@@ -88,6 +93,9 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     return () => {
       if (resolveTimerRef.current) {
         clearTimeout(resolveTimerRef.current);
+      }
+      if (hintTimerRef.current) {
+        clearTimeout(hintTimerRef.current);
       }
     };
   }, []);
@@ -304,6 +312,15 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setBombPosition(null);
   }, [level, shapeIndex]);
 
+  const requestHint = useCallback(() => {
+    if (gameOver || won || isResolving) return;
+    const hint = findHint(board, shapeMask, GAME_CONFIG.minMatch, GAME_CONFIG.easyColorKinds);
+    if (!hint) return;
+    setHintCells([hint.from, hint.to]);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = setTimeout(() => setHintCells([]), 1500);
+  }, [board, gameOver, isResolving, shapeMask, won]);
+
   const goal = useMemo(() => getGoalForShape(shapeIndex, level), [level, shapeIndex]);
 
   return {
@@ -322,9 +339,11 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     bestScore,
     level,
     bombPosition,
+    hintCells,
     combo,
     tapCell,
     cycleShape,
     restart,
+    requestHint,
   };
 };

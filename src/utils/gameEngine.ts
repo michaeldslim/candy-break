@@ -286,6 +286,37 @@ export const trySwapAndResolve = (
   };
 };
 
+export const findHint = (
+  board: IBoard,
+  mask: boolean[][],
+  minMatch: number,
+  maxKinds: number,
+): { from: IPosition; to: IPosition } | null => {
+  const rows = board.length;
+  const cols = board[0]?.length ?? 0;
+  const directions: IPosition[] = [
+    { row: 0, col: 1 },
+    { row: 1, col: 0 },
+    { row: 0, col: -1 },
+    { row: -1, col: 0 },
+  ];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      if (!isPlayableCell(mask, row, col)) continue;
+      for (const dir of directions) {
+        const neighbor = { row: row + dir.row, col: col + dir.col };
+        if (!isPlayableCell(mask, neighbor.row, neighbor.col)) continue;
+        const result = trySwapAndResolve(board, mask, { row, col }, neighbor, minMatch, maxKinds);
+        if (result.moved) {
+          return { from: { row, col }, to: neighbor };
+        }
+      }
+    }
+  }
+  return null;
+};
+
 export const scoreClear = (clearedTiles: number, comboCount: number): IScoreResult => {
   if (clearedTiles <= 0) {
     return { points: 0, comboAwarded: 0 };
