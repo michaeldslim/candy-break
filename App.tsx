@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Fireworks from './src/components/Fireworks';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
+import { CANDY_SYMBOLS } from './src/constants/game';
 
 const HORIZONTAL_PADDING = 24;
 const BOARD_CONTAINER_PADDING = 12;
@@ -58,6 +59,7 @@ export default function App() {
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevFinalWinRef = useRef(false);
   const [showFireworks, setShowFireworks] = useState(false);
+  const [colorBlind, setColorBlind] = useState(false);
 
   // Start/stop bomb pulse loop
   useEffect(() => {
@@ -355,7 +357,13 @@ export default function App() {
                               }
                             : null,
                         ]}
-                      />
+                      >
+                        {colorBlind && cell && isPlayable ? (
+                          <Text style={{ fontSize: cellSize * 0.62, color: '#d8d8d8', fontWeight: '900', lineHeight: cellSize * 0.72 }}>
+                            {CANDY_SYMBOLS[cell.candyBreak] ?? '?'}
+                          </Text>
+                        ) : null}
+                      </AnimatedPressable>
                     );
                   })}
               </View>
@@ -393,6 +401,12 @@ export default function App() {
           <View style={styles.controlsRow}>
             <Pressable style={styles.controlButton} onPress={restart}>
               <Text style={styles.controlText}>Restart</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.controlButton, colorBlind && styles.controlButtonActive]}
+              onPress={() => setColorBlind((v) => !v)}
+            >
+              <Text style={styles.controlText}>{colorBlind ? '♿ ON' : '♿ OFF'}</Text>
             </Pressable>
           </View>
         </View>
@@ -559,12 +573,13 @@ const styles = StyleSheet.create({
   controlsRow: {
     marginTop: 8,
     width: '100%',
-    flexDirection: 'column',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
   controlButton: {
-    minWidth: 150,
+    minWidth: 130,
     height: 46,
     marginHorizontal: 3,
     paddingHorizontal: 12,
@@ -572,6 +587,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#3a506b',
+  },
+  controlButtonActive: {
+    backgroundColor: '#118ab2',
   },
   controlText: {
     color: '#fdf0d5',

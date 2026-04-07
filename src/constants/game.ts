@@ -120,3 +120,10 @@ export const COLOR_POOL: ICandyBreak[] = [
   { color: '#ffd166', candyBreak: 'Gold' },
   { color: '#06d6a0', candyBreak: 'Mint' },
 ];
+
+export const CANDY_SYMBOLS: Record<string, string> = {
+  Red:  '★',
+  Blue: '●',
+  Gold: '▲',
+  Mint: '◆',
+};
