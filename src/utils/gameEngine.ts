@@ -27,6 +27,19 @@ export const isPlayableCell = (mask: boolean[][], row: number, col: number): boo
 export const countPlayableCells = (mask: boolean[][]): number =>
   mask.reduce((sum, row) => sum + row.filter(Boolean).length, 0);
 
+export const getRandomPlayablePosition = (mask: boolean[][]): IPosition | null => {
+  const playable: IPosition[] = [];
+  for (let row = 0; row < mask.length; row += 1) {
+    for (let col = 0; col < (mask[0]?.length ?? 0); col += 1) {
+      if (isPlayableCell(mask, row, col)) {
+        playable.push({ row, col });
+      }
+    }
+  }
+  if (playable.length === 0) return null;
+  return playable[Math.floor(Math.random() * playable.length)] ?? null;
+};
+
 export const createInitialBoard = (mask: boolean[][], maxKinds: number): IBoard => {
   const rows = mask.length;
   const cols = mask[0]?.length ?? 0;

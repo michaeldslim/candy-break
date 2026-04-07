@@ -10,6 +10,7 @@ export const GAME_BASE_EASY_COLOR_KINDS = 4;
 export const SCORE_BASE_POINTS = 15;
 export const SCORE_EXTRA_TILE_POINTS = 5;
 export const SCORE_COMBO_POINTS = 10;
+export const BOMB_SCORE_BONUS = 50;
 
 export const FIREWORK_COLORS = [
   '#FF6B6B',

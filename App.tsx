@@ -44,14 +44,47 @@ export default function App() {
     level,
     tapCell,
     restart,
+    bombPosition,
   } = useCandyBreak();
 
   const matchAnim = useRef(new Animated.Value(0)).current;
+  const bombPulseAnim = useRef(new Animated.Value(0)).current;
+  const bombPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const matchSoundRef = useRef<Audio.Sound | null>(null);
   const congratsSoundRef = useRef<Audio.Sound | null>(null);
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevFinalWinRef = useRef(false);
   const [showFireworks, setShowFireworks] = useState(false);
+
+  // Start/stop bomb pulse loop
+  useEffect(() => {
+    if (bombPosition) {
+      bombPulseAnim.setValue(0);
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bombPulseAnim, {
+            toValue: 1,
+            duration: 550,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bombPulseAnim, {
+            toValue: 0,
+            duration: 550,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      bombPulseLoopRef.current = loop;
+      loop.start();
+    } else {
+      bombPulseLoopRef.current?.stop();
+      bombPulseLoopRef.current = null;
+      bombPulseAnim.setValue(0);
+    }
+    return () => {
+      bombPulseLoopRef.current?.stop();
+    };
+  }, [bombPulseAnim, bombPosition]);
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +147,15 @@ export default function App() {
 
   const goalProgress = Math.max(0, goal - goalRemaining);
   const matchedSet = useMemo(() => new Set(matchedCellKeys), [matchedCellKeys]);
+
+  const bombScale = bombPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.88, 1.12],
+  });
+  const bombOpacity = bombPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.75, 1],
+  });
 
   const matchScale = matchAnim.interpolate({
     inputRange: [0, 0.25, 1],
@@ -215,38 +257,73 @@ export default function App() {
           <View style={styles.boardContainer}>
             {board.map((row, rowIndex) => (
               <View key={`row-${rowIndex}`} style={styles.boardRow}>
-                {row.map((cell, colIndex) => (
-                  <AnimatedPressable
-                    key={`cell-${rowIndex}-${colIndex}`}
-                    onPress={() => tapCell(rowIndex, colIndex)}
-                    disabled={!shapeMask[rowIndex]?.[colIndex] || gameOver || isResolving}
-                    style={[
-                      styles.cell,
-                      {
-                        width: cellSize,
-                        height: cellSize,
-                        backgroundColor: shapeMask[rowIndex]?.[colIndex]
-                          ? cell
-                            ? cell.color
-                            : 'transparent'
-                          : 'transparent',
-                        borderWidth:
-                          selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
-                        borderColor:
-                          selectedCell?.row === rowIndex && selectedCell?.col === colIndex
-                            ? '#fdf0d5'
-                            : '#0f1a34',
-                        opacity: shapeMask[rowIndex]?.[colIndex] ? 1 : 0,
-                      },
-                      matchedSet.has(`${rowIndex}:${colIndex}`)
-                        ? {
-                            transform: [{ scale: matchScale }, { rotate: matchRotate }],
-                            opacity: matchOpacity,
-                          }
-                        : null,
-                    ]}
-                  />
-                ))}
+                {row.map((cell, colIndex) => {
+                    const isBomb = !!bombPosition && bombPosition.row === rowIndex && bombPosition.col === colIndex;
+                    const isMatched = matchedSet.has(`${rowIndex}:${colIndex}`);
+                    const isPlayable = !!shapeMask[rowIndex]?.[colIndex];
+
+                    if (isBomb) {
+                      return (
+                        <Animated.View
+                          key={`cell-${rowIndex}-${colIndex}`}
+                          style={[
+                            styles.cell,
+                            {
+                              width: cellSize,
+                              height: cellSize,
+                              backgroundColor: '#ffd166',
+                              borderWidth: 2,
+                              borderColor: '#fff7c0',
+                              transform: [{ scale: bombScale }],
+                              opacity: bombOpacity,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            },
+                          ]}
+                        >
+                          <Pressable
+                            onPress={() => tapCell(rowIndex, colIndex)}
+                            style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <Text style={{ fontSize: cellSize * 0.42, lineHeight: cellSize * 0.52 }}>⚡</Text>
+                          </Pressable>
+                        </Animated.View>
+                      );
+                    }
+
+                    return (
+                      <AnimatedPressable
+                        key={`cell-${rowIndex}-${colIndex}`}
+                        onPress={() => tapCell(rowIndex, colIndex)}
+                        disabled={!isPlayable || gameOver || isResolving}
+                        style={[
+                          styles.cell,
+                          {
+                            width: cellSize,
+                            height: cellSize,
+                            backgroundColor: isPlayable
+                              ? cell
+                                ? cell.color
+                                : 'transparent'
+                              : 'transparent',
+                            borderWidth:
+                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
+                            borderColor:
+                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex
+                                ? '#fdf0d5'
+                                : '#0f1a34',
+                            opacity: isPlayable ? 1 : 0,
+                          },
+                          isMatched
+                            ? {
+                                transform: [{ scale: matchScale }, { rotate: matchRotate }],
+                                opacity: matchOpacity,
+                              }
+                            : null,
+                        ]}
+                      />
+                    );
+                  })}
               </View>
             ))}
 
