@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import Fireworks from './src/components/Fireworks';
+import InstructionPage from './src/components/InstructionPage';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
 import { CANDY_SYMBOLS } from './src/constants/game';
 
@@ -66,6 +67,7 @@ export default function App() {
   const prevFinalWinRef = useRef(false);
   const [showFireworks, setShowFireworks] = useState(false);
   const [colorBlind, setColorBlind] = useState(false);
+  const [showInstructionPage, setShowInstructionPage] = useState(true);
 
   // Start/stop bomb pulse loop
   useEffect(() => {
@@ -292,6 +294,15 @@ export default function App() {
 
     prevFinalWinRef.current = isFinalWin;
   }, [gameOver, won]);
+
+  const startGame = (): void => {
+    restart();
+    setShowInstructionPage(false);
+  };
+
+  if (showInstructionPage) {
+    return <InstructionPage onStartGame={startGame} />;
+  }
 
 
   return (
