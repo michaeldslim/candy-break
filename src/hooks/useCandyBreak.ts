@@ -13,6 +13,15 @@ import {
   trySwapAndResolve,
 } from '../utils/gameEngine';
 
+interface ISavedGame {
+  level: number;
+  shapeIndex: number;
+  score: number;
+  movesLeft: number;
+  goalRemaining: number;
+  board: IBoard;
+}
+
 interface IUseCandyBreakResult {
   board: IBoard;
   shapeMask: boolean[][];
@@ -33,14 +42,17 @@ interface IUseCandyBreakResult {
   hintCells: IPosition[];
   stageStars: 1 | 2 | 3 | null;
   bestStars: 0 | 1 | 2 | 3;
+  hasSavedGame: boolean;
   tapCell: (row: number, col: number) => void;
   cycleShape: () => void;
   restart: () => void;
   restartFromLevelOne: () => void;
+  resumeSavedGame: () => void;
   requestHint: () => void;
 }
 
 const START_LEVEL = 1;
+const SAVE_GAME_KEY = 'savedGame';
 const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
 const DROP_PAUSE_MS = 140;
@@ -89,15 +101,32 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bestScore, setBestScore] = useState(0);
   const [bestStars, setBestStars] = useState<0 | 1 | 2 | 3>(0);
+  const [hasSavedGame, setHasSavedGame] = useState(false);
+  const savedGameRef = useRef<ISavedGame | null>(null);
 
-  // Load persisted best score on mount
+  // Load persisted best score and saved game on mount
   useEffect(() => {
     AsyncStorage.getItem('bestScore').then((value) => {
       if (value !== null) {
         setBestScore(parseInt(value, 10));
       }
     }).catch(() => undefined);
+
+    AsyncStorage.getItem(SAVE_GAME_KEY).then((raw) => {
+      if (!raw) return;
+      const saved: ISavedGame = JSON.parse(raw) as ISavedGame;
+      savedGameRef.current = saved;
+      setHasSavedGame(true);
+    }).catch(() => undefined);
   }, []);
+
+  // Clear saved game when game ends
+  useEffect(() => {
+    if (gameOver) {
+      AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
+      setHasSavedGame(false);
+    }
+  }, [gameOver]);
 
   // Load best stars for current shape+level
   useEffect(() => {
@@ -240,16 +269,31 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         clearTimeout(resolveTimerRef.current);
       }
 
+      const saveNewStage = (newBoard: IBoard, newLevel: number, newShapeIndex: number, newScore: number): void => {
+        const snap: ISavedGame = {
+          level: newLevel,
+          shapeIndex: newShapeIndex,
+          score: newScore,
+          movesLeft: getMovesForLevel(newLevel),
+          goalRemaining: getGoalForShape(newShapeIndex, newLevel),
+          board: newBoard,
+        };
+        savedGameRef.current = snap;
+        AsyncStorage.setItem(SAVE_GAME_KEY, JSON.stringify(snap)).catch(() => undefined);
+      };
+
       const advanceAfterStars = (): void => {
         setStageStars(null);
+        const currentScore = score + clearScore.points;
         const isLastShape = shapeIndex >= GAME_SHAPES.length - 1;
         if (isLastShape) {
           const isLastLevel = level >= MAX_LEVEL;
           if (!isLastLevel) {
             const nextLevel = level + 1;
+            const newBoard = createBoardForShape(0);
             setLevel(nextLevel);
             setShapeIndex(0);
-            setBoard(createBoardForShape(0));
+            setBoard(newBoard);
             setSelectedCell(null);
             setMatchedCellKeys([]);
             setIsResolving(false);
@@ -257,6 +301,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
             setMovesLeft(getMovesForLevel(nextLevel));
             setGoalRemaining(getGoalForShape(0, nextLevel));
             setBombPosition(null);
+            saveNewStage(newBoard, nextLevel, 0, currentScore);
             return;
           }
           setIsResolving(false);
@@ -265,8 +310,9 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           return;
         }
         const nextShapeIndex = shapeIndex + 1;
+        const newBoard = createBoardForShape(nextShapeIndex);
         setShapeIndex(nextShapeIndex);
-        setBoard(createBoardForShape(nextShapeIndex));
+        setBoard(newBoard);
         setSelectedCell(null);
         setMatchedCellKeys([]);
         setIsResolving(false);
@@ -274,6 +320,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         setMovesLeft(getMovesForLevel(level));
         setGoalRemaining(getGoalForShape(nextShapeIndex, level));
         setBombPosition(null);
+        saveNewStage(newBoard, level, nextShapeIndex, currentScore);
       };
 
       const finalizeMove = (): void => {
@@ -317,6 +364,17 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           return;
         }
 
+        if (nextGoalRemaining > 0 && nextMoves > 0) {
+          const snap: ISavedGame = {
+            level,
+            shapeIndex,
+            score: score + clearScore.points,
+            movesLeft: nextMoves,
+            goalRemaining: nextGoalRemaining,
+            board: finalBoard,
+          };
+          AsyncStorage.setItem(SAVE_GAME_KEY, JSON.stringify(snap)).catch(() => undefined);
+        }
         setIsResolving(false);
         if (nextMoves === 0) {
           setGameOver(true);
@@ -351,6 +409,30 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     [board, bombPosition, bestScore, gameOver, goalRemaining, isResolving, level, movesLeft, selectedCell, shapeIndex, shapeMask, won],
   );
 
+  const resumeSavedGame = useCallback(() => {
+    const saved = savedGameRef.current;
+    if (!saved) return;
+    if (resolveTimerRef.current) {
+      clearTimeout(resolveTimerRef.current);
+      resolveTimerRef.current = null;
+    }
+    setLevel(saved.level);
+    setShapeIndex(saved.shapeIndex);
+    setScore(saved.score);
+    setMovesLeft(saved.movesLeft);
+    setGoalRemaining(saved.goalRemaining);
+    setBoard(saved.board);
+    setSelectedCell(null);
+    setMatchedCellKeys([]);
+    setIsResolving(false);
+    setCombo(0);
+    setWon(false);
+    setGameOver(false);
+    setBombPosition(null);
+    setStageStars(null);
+    setHintCells([]);
+  }, []);
+
   const restart = useCallback(() => {
     if (resolveTimerRef.current) {
       clearTimeout(resolveTimerRef.current);
@@ -360,6 +442,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearTimeout(hintTimerRef.current);
       hintTimerRef.current = null;
     }
+    AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
+    setHasSavedGame(false);
     setStageStars(null);
     setHintCells([]);
     setBoard(createBoardForShape(shapeIndex));
@@ -384,6 +468,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearTimeout(hintTimerRef.current);
       hintTimerRef.current = null;
     }
+    AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
+    setHasSavedGame(false);
 
     setStageStars(null);
     setHintCells([]);
@@ -453,11 +539,13 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     hintCells,
     stageStars,
     bestStars,
+    hasSavedGame,
     combo,
     tapCell,
     cycleShape,
     restart,
     restartFromLevelOne,
+    resumeSavedGame,
     requestHint,
   };
 };

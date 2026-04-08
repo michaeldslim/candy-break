@@ -5,9 +5,11 @@ const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeig
 
 type InstructionPageProps = {
   onStartGame: () => void;
+  onContinueGame: () => void;
+  hasSavedGame: boolean;
 };
 
-export default function InstructionPage({ onStartGame }: InstructionPageProps) {
+export default function InstructionPage({ onStartGame, onContinueGame, hasSavedGame }: InstructionPageProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -35,8 +37,13 @@ export default function InstructionPage({ onStartGame }: InstructionPageProps) {
             <Text style={styles.instructionItem}>5. Use Hint when stuck, and tap Restart to start over anytime.</Text>
           </View>
 
+          {hasSavedGame && (
+            <Pressable style={styles.continueGameButton} onPress={onContinueGame}>
+              <Text style={styles.continueGameButtonText}>Resume Last Game</Text>
+            </Pressable>
+          )}
           <Pressable style={styles.startGameButton} onPress={onStartGame}>
-            <Text style={styles.startGameButtonText}>Start Game</Text>
+            <Text style={styles.startGameButtonText}>New Game</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -97,6 +104,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#3a506b',
+  },
+  continueGameButton: {
+    marginTop: 4,
+    width: '100%',
+    height: 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e63946',
+  },
+  continueGameButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
   },
   startGameButtonText: {
     color: '#fdf0d5',

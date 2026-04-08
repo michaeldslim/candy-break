@@ -134,6 +134,8 @@ export default function App() {
     requestHint,
     stageStars,
     bestStars,
+    hasSavedGame,
+    resumeSavedGame,
   } = useCandyBreak();
 
   const hintSet = useMemo(() => new Set(hintCells?.map(p => `${p.row}:${p.col}`) ?? []), [hintCells]);
@@ -392,12 +394,23 @@ export default function App() {
   }, [gameOver, won]);
 
   const startGame = (): void => {
-    restart();
+    restartFromLevelOne();
+    setShowInstructionPage(false);
+  };
+
+  const continueGame = (): void => {
+    resumeSavedGame();
     setShowInstructionPage(false);
   };
 
   if (showInstructionPage) {
-    return <InstructionPage onStartGame={startGame} />;
+    return (
+      <InstructionPage
+        onStartGame={startGame}
+        onContinueGame={continueGame}
+        hasSavedGame={hasSavedGame}
+      />
+    );
   }
 
 
