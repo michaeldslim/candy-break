@@ -36,6 +36,7 @@ interface IUseCandyBreakResult {
   tapCell: (row: number, col: number) => void;
   cycleShape: () => void;
   restart: () => void;
+  restartFromLevelOne: () => void;
   requestHint: () => void;
 }
 
@@ -355,7 +356,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearTimeout(resolveTimerRef.current);
       resolveTimerRef.current = null;
     }
+    if (hintTimerRef.current) {
+      clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = null;
+    }
     setStageStars(null);
+    setHintCells([]);
     setBoard(createBoardForShape(shapeIndex));
     setSelectedCell(null);
     setMatchedCellKeys([]);
@@ -368,6 +374,33 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setGameOver(false);
     setBombPosition(null);
   }, [level, shapeIndex]);
+
+  const restartFromLevelOne = useCallback(() => {
+    if (resolveTimerRef.current) {
+      clearTimeout(resolveTimerRef.current);
+      resolveTimerRef.current = null;
+    }
+    if (hintTimerRef.current) {
+      clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = null;
+    }
+
+    setStageStars(null);
+    setHintCells([]);
+    setLevel(START_LEVEL);
+    setShapeIndex(0);
+    setBoard(createBoardForShape(0));
+    setSelectedCell(null);
+    setMatchedCellKeys([]);
+    setIsResolving(false);
+    setScore(0);
+    setCombo(0);
+    setMovesLeft(getMovesForLevel(START_LEVEL));
+    setGoalRemaining(getGoalForShape(0, START_LEVEL));
+    setWon(false);
+    setGameOver(false);
+    setBombPosition(null);
+  }, []);
 
   const cycleShape = useCallback(() => {
     if (resolveTimerRef.current) {
@@ -424,6 +457,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     tapCell,
     cycleShape,
     restart,
+    restartFromLevelOne,
     requestHint,
   };
 };

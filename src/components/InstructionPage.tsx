@@ -11,15 +11,15 @@ export default function InstructionPage({ onStartGame }: InstructionPageProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
+      <View style={styles.headerContainer}>
+        <Text style={styles.instructionTitle}>How to Play</Text>
+      </View>
       <ScrollView
         contentContainerStyle={styles.instructionScrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.instructionContainer}>
-          <Text style={styles.instructionTitle}>How to Play</Text>
-
           <View style={styles.instructionCard}>
-            <Text style={styles.instructionSectionTitle}>KO</Text>
             <Text style={styles.instructionItem}>1. 블록 하나를 탭한 뒤, 인접한 블록을 탭해서 위치를 바꾸세요.</Text>
             <Text style={styles.instructionItem}>2. 같은 모양(아이콘) 3개 이상이 가로/세로로 맞춰지면 제거되고 점수를 얻습니다.</Text>
             <Text style={styles.instructionItem}>3. 제한된 Moves 안에 Goal을 채우면 다음 Shape(스테이지)로 진행됩니다.</Text>
@@ -28,7 +28,6 @@ export default function InstructionPage({ onStartGame }: InstructionPageProps) {
           </View>
 
           <View style={styles.instructionCard}>
-            <Text style={styles.instructionSectionTitle}>EN</Text>
             <Text style={styles.instructionItem}>1. Tap one candy, then tap an adjacent candy to swap.</Text>
             <Text style={styles.instructionItem}>2. Match 3+ of the same shape/icon in a row or column to clear and score.</Text>
             <Text style={styles.instructionItem}>3. Reach the Goal within limited Moves to advance to the next Shape.</Text>
@@ -50,12 +49,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0b132b',
   },
+  headerContainer: {
+    paddingTop: ANDROID_TOP_PADDING + 8,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
   instructionScrollContent: {
     flexGrow: 1,
     paddingBottom: 28,
   },
   instructionContainer: {
-    paddingTop: ANDROID_TOP_PADDING + 14,
+    paddingTop: 8,
     paddingHorizontal: 16,
     paddingBottom: 14,
     gap: 12,

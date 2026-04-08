@@ -20,9 +20,9 @@ import { useCandyBreak } from './src/hooks/useCandyBreak';
 
 const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
   Red:  require('./assets/images/candy_red.png'),
-  Blue: require('./assets/images/candy_mint.png'),
+  Blue: require('./assets/images/candy_blue.png'),
   Gold: require('./assets/images/candy_gold.png'),
-  Mint: require('./assets/images/candy_blue.png'),
+  Mint: require('./assets/images/candy_mint.png'),
 };
 
 const HORIZONTAL_PADDING = 24;
@@ -129,6 +129,7 @@ export default function App() {
     hintCells,
     tapCell,
     restart,
+    restartFromLevelOne,
     bombPosition,
     requestHint,
     stageStars,
@@ -587,7 +588,7 @@ export default function App() {
           </View>
 
           <View style={styles.controlsRow}>
-            <Pressable style={styles.controlButton} onPress={restart}>
+            <Pressable style={styles.controlButton} onPress={restart} onLongPress={restartFromLevelOne} delayLongPress={450}>
               <Text style={styles.controlText}>Restart</Text>
             </Pressable>
             <Pressable style={styles.controlButton} onPress={requestHint} disabled={gameOver || isResolving}>
