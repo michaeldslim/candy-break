@@ -6,14 +6,28 @@ jspm_packages/
 .expo/
 eas.json
 
+ios/
+ios/build/
+ios/Pods/
+
 # npm lockfile (using npm now)
 # ignore yarn lock since we're using npm
 yarn.lock
 
+# Android 빌드 결과물만 무시
+android/.gradle/
+android/build/
+android/app/release/
+android/app/bin/
+android/app/build/
+android/captures/
+android/local.properties
+
 # Distribution directories
 dist/
 build/
-out/
+.idea/
+.gradle
 
 # Environment files
 .env
