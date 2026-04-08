@@ -33,6 +33,79 @@ const BOARD_HEIGHT_RATIO = 0.6;
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 const MATCH_ANIMATION_MS = 220;
 
+type SpecialType = 'striped-h' | 'striped-v' | 'rainbow';
+
+function SpecialOverlay({ type, cellSize }: { type: SpecialType; cellSize: number }) {
+  const [opacity, setOpacity] = useState(1);
+  useEffect(() => {
+    const STEPS = 20;
+    let step = 0;
+    const id = setInterval(() => {
+      step = (step + 1) % STEPS;
+      // 0–9: fade out 1→0.15, 10–19: fade in 0.15→1
+      const half = STEPS / 2;
+      const newOpacity = step < half
+        ? 1 - (step / half) * 0.85
+        : 0.15 + ((step - half) / half) * 0.85;
+      setOpacity(newOpacity);
+    }, 50); // 20 steps × 50ms = 1s cycle
+    return () => clearInterval(id);
+  }, []);
+
+  if (type === 'striped-h') {
+    return (
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: (cellSize - 6) / 2,
+          left: cellSize * 0.06,
+          width: cellSize * 0.88,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          opacity,
+        }}
+      />
+    );
+  }
+  if (type === 'striped-v') {
+    return (
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: (cellSize - 6) / 2,
+          top: cellSize * 0.06,
+          width: 6,
+          height: cellSize * 0.88,
+          borderRadius: 3,
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          opacity,
+        }}
+      />
+    );
+  }
+  // rainbow
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: (cellSize - cellSize * 0.7) / 2,
+        left: (cellSize - cellSize * 0.7) / 2,
+        width: cellSize * 0.7,
+        height: cellSize * 0.7,
+        borderRadius: cellSize * 0.35,
+        borderWidth: 3,
+        borderColor: '#fff',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        opacity,
+      }}
+    />
+  );
+}
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function App() {
@@ -79,6 +152,8 @@ export default function App() {
   const [showInstructionPage, setShowInstructionPage] = useState(true);
 
   // Start/stop bomb pulse loop
+  // Blink loop for special tiles handled by SpecialOverlay component
+
   useEffect(() => {
     if (bombPosition) {
       bombPulseAnim.setValue(0);
@@ -405,8 +480,8 @@ export default function App() {
                     }
 
                     return (
+                      <View key={`cell-${rowIndex}-${colIndex}`} style={{ width: cellSize, height: cellSize }}>
                       <AnimatedPressable
-                        key={`cell-${rowIndex}-${colIndex}`}
                         onPress={() => tapCell(rowIndex, colIndex)}
                         disabled={!isPlayable || gameOver || isResolving}
                         style={[
@@ -448,6 +523,10 @@ export default function App() {
                           />
                         ) : null}
                       </AnimatedPressable>
+                        {cell?.special && isPlayable ? (
+                          <SpecialOverlay type={cell.special} cellSize={cellSize} />
+                        ) : null}
+                      </View>
                     );
                   })}
               </View>
@@ -634,6 +713,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0f1a34',
   },
+  specialOverlay: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  rainbowOverlay: {
+    position: 'absolute',
+    borderWidth: 3,
+    borderColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
   gameOverOverlay: {
     position: 'absolute',
     top: '35%',
@@ -649,6 +738,7 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 88,
     backgroundColor: 'rgba(11, 19, 43, 0.82)',
     borderRadius: 12,
   },

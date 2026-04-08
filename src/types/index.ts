@@ -1,5 +1,6 @@
 export interface ICandyBreak {
   candyBreak: string;
+  special?: 'striped-h' | 'striped-v' | 'rainbow';
 }
 
 export interface IPosition {

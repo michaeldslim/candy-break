@@ -21,19 +21,19 @@ export default function InstructionPage({ onStartGame }: InstructionPageProps) {
           <View style={styles.instructionCard}>
             <Text style={styles.instructionSectionTitle}>KO</Text>
             <Text style={styles.instructionItem}>1. 블록 하나를 탭한 뒤, 인접한 블록을 탭해서 위치를 바꾸세요.</Text>
-            <Text style={styles.instructionItem}>2. 같은 색 3개 이상이 가로/세로로 맞춰지면 제거되고 점수를 얻습니다.</Text>
-            <Text style={styles.instructionItem}>3. 제한된 이동 횟수 안에 Goal을 채우면 다음 스테이지(Shape)로 진행합니다.</Text>
-            <Text style={styles.instructionItem}>4. Hint 버튼으로 가능한 이동을 확인할 수 있습니다.</Text>
-            <Text style={styles.instructionItem}>5. 색 구분이 어려우면 ♿ 버튼으로 Color Blind 모드를 켜세요.</Text>
+            <Text style={styles.instructionItem}>2. 같은 모양(아이콘) 3개 이상이 가로/세로로 맞춰지면 제거되고 점수를 얻습니다.</Text>
+            <Text style={styles.instructionItem}>3. 제한된 Moves 안에 Goal을 채우면 다음 Shape(스테이지)로 진행됩니다.</Text>
+            <Text style={styles.instructionItem}>4. 스테이지를 클리어하면 별(★)을 획득하고, 상단에 최고 점수/최고 별 개수가 표시됩니다.</Text>
+            <Text style={styles.instructionItem}>5. 막히면 Hint를 사용하고, 처음부터 다시 하려면 Restart를 누르세요.</Text>
           </View>
 
           <View style={styles.instructionCard}>
             <Text style={styles.instructionSectionTitle}>EN</Text>
             <Text style={styles.instructionItem}>1. Tap one candy, then tap an adjacent candy to swap.</Text>
-            <Text style={styles.instructionItem}>2. Match 3+ of the same color in a row or column to clear and score.</Text>
-            <Text style={styles.instructionItem}>3. Reach the Goal within the move limit to advance to the next shape.</Text>
-            <Text style={styles.instructionItem}>4. Use the Hint button if you need help finding a move.</Text>
-            <Text style={styles.instructionItem}>5. Toggle ♿ mode for color-blind-friendly symbols.</Text>
+            <Text style={styles.instructionItem}>2. Match 3+ of the same shape/icon in a row or column to clear and score.</Text>
+            <Text style={styles.instructionItem}>3. Reach the Goal within limited Moves to advance to the next Shape.</Text>
+            <Text style={styles.instructionItem}>4. Clearing a stage earns stars (★), and your best score/stars are shown at the top.</Text>
+            <Text style={styles.instructionItem}>5. Use Hint when stuck, and tap Restart to start over anytime.</Text>
           </View>
 
           <Pressable style={styles.startGameButton} onPress={onStartGame}>
