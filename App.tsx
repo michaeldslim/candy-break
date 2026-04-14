@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
   },
   boardContainer: {
-    marginTop: 46,
+    marginTop: 16,
     borderRadius: 12,
     backgroundColor: 'transparent',
     padding: BOARD_CONTAINER_PADDING,
