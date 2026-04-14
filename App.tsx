@@ -456,6 +456,15 @@ export default function App() {
             <Text style={styles.shapeStageValue}>{shapeLabel}</Text>
           </View>
 
+          <View style={styles.controlsRow}>
+            <Pressable style={styles.controlButton} onPress={restart} onLongPress={restartFromLevelOne} delayLongPress={450}>
+              <Text style={styles.controlText}>Restart</Text>
+            </Pressable>
+            <Pressable style={styles.controlButton} onPress={requestHint} disabled={gameOver || isResolving}>
+              <Text style={styles.controlText}>Hint</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.boardContainer}>
             {board.map((row, rowIndex) => (
               <View key={`row-${rowIndex}`} style={styles.boardRow}>
@@ -595,19 +604,6 @@ export default function App() {
               </Animated.View>
             ) : null}
           </View>
-
-          <View style={styles.helpCard}>
-            <Text style={styles.helpText}>Tap one cube, then tap an adjacent cube to swap.</Text>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <Pressable style={styles.controlButton} onPress={restart} onLongPress={restartFromLevelOne} delayLongPress={450}>
-              <Text style={styles.controlText}>Restart</Text>
-            </Pressable>
-            <Pressable style={styles.controlButton} onPress={requestHint} disabled={gameOver || isResolving}>
-              <Text style={styles.controlText}>Hint</Text>
-            </Pressable>
-          </View>
         </View>
         <Fireworks visible={showFireworks} />
       </ScrollView>
@@ -690,7 +686,7 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
   },
   boardContainer: {
-    marginTop: 8,
+    marginTop: 46,
     borderRadius: 12,
     backgroundColor: 'transparent',
     padding: BOARD_CONTAINER_PADDING,
@@ -799,21 +795,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  helpCard: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-    width: '100%',
-    borderRadius: 10,
-    backgroundColor: '#1c2541',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  helpText: {
-    color: '#a9bcd0',
-    fontSize: 10,
-    fontWeight: '600',
-  },
   controlsRow: {
     marginTop: 8,
     width: '100%',
@@ -823,7 +804,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   controlButton: {
-    minWidth: 90,
+    flex: 1,
     height: 38,
     marginHorizontal: 3,
     paddingHorizontal: 10,
