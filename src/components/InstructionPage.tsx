@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { Platform, Pressable, SafeAreaView, ScrollView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
@@ -9,12 +10,58 @@ type InstructionPageProps = {
   hasSavedGame: boolean;
 };
 
+type Language = 'ko' | 'en';
+
+const instructions = {
+  ko: {
+    title: '게임 방법',
+    buttonResume: '지난 게임 계속하기',
+    buttonStart: '새 게임',
+    steps: [
+      '1. 블록 하나를 탭한 뒤, 인접한 블록을 탭해서 위치를 바꾸세요.',
+      '2. 같은 모양(아이콘) 3개 이상이 가로/세로로 맞춰지면 제거되고 점수를 얻습니다.',
+      '3. 제한된 Moves 안에 Goal을 채우면 다음 Shape(스테이지)로 진행됩니다.',
+      '4. 스테이지를 클리어하면 별(★)을 획득하고, 상단에 최고 점수/최고 별 개수가 표시됩니다.',
+      '5. 막히면 Hint를 사용하고, 처음부터 다시 하려면 Restart를 누르세요.',
+    ],
+  },
+  en: {
+    title: 'How to Play',
+    buttonResume: 'Resume Last Game',
+    buttonStart: 'New Game',
+    steps: [
+      '1. Tap one candy, then tap an adjacent candy to swap.',
+      '2. Match 3+ of the same shape/icon in a row or column to clear and score.',
+      '3. Reach the Goal within limited Moves to advance to the next Shape.',
+      '4. Clearing a stage earns stars (★), and your best score/stars are shown at the top.',
+      '5. Use Hint when stuck, and tap Restart to start over anytime.',
+    ],
+  },
+};
+
 export default function InstructionPage({ onStartGame, onContinueGame, hasSavedGame }: InstructionPageProps) {
+  const [language, setLanguage] = useState<Language>('ko');
+  const locale = instructions[language];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.headerContainer}>
-        <Text style={styles.instructionTitle}>How to Play</Text>
+        <Text style={styles.instructionTitle}>{locale.title}</Text>
+        <View style={styles.languageToggleRow}>
+          <Pressable
+            style={[styles.languageToggleButton, language === 'ko' && styles.languageToggleButtonActive]}
+            onPress={() => setLanguage('ko')}
+          >
+            <Text style={[styles.languageToggleText, language === 'ko' && styles.languageToggleTextActive]}>KO</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.languageToggleButton, language === 'en' && styles.languageToggleButtonActive]}
+            onPress={() => setLanguage('en')}
+          >
+            <Text style={[styles.languageToggleText, language === 'en' && styles.languageToggleTextActive]}>EN</Text>
+          </Pressable>
+        </View>
       </View>
       <ScrollView
         contentContainerStyle={styles.instructionScrollContent}
@@ -22,28 +69,18 @@ export default function InstructionPage({ onStartGame, onContinueGame, hasSavedG
       >
         <View style={styles.instructionContainer}>
           <View style={styles.instructionCard}>
-            <Text style={styles.instructionItem}>1. 블록 하나를 탭한 뒤, 인접한 블록을 탭해서 위치를 바꾸세요.</Text>
-            <Text style={styles.instructionItem}>2. 같은 모양(아이콘) 3개 이상이 가로/세로로 맞춰지면 제거되고 점수를 얻습니다.</Text>
-            <Text style={styles.instructionItem}>3. 제한된 Moves 안에 Goal을 채우면 다음 Shape(스테이지)로 진행됩니다.</Text>
-            <Text style={styles.instructionItem}>4. 스테이지를 클리어하면 별(★)을 획득하고, 상단에 최고 점수/최고 별 개수가 표시됩니다.</Text>
-            <Text style={styles.instructionItem}>5. 막히면 Hint를 사용하고, 처음부터 다시 하려면 Restart를 누르세요.</Text>
-          </View>
-
-          <View style={styles.instructionCard}>
-            <Text style={styles.instructionItem}>1. Tap one candy, then tap an adjacent candy to swap.</Text>
-            <Text style={styles.instructionItem}>2. Match 3+ of the same shape/icon in a row or column to clear and score.</Text>
-            <Text style={styles.instructionItem}>3. Reach the Goal within limited Moves to advance to the next Shape.</Text>
-            <Text style={styles.instructionItem}>4. Clearing a stage earns stars (★), and your best score/stars are shown at the top.</Text>
-            <Text style={styles.instructionItem}>5. Use Hint when stuck, and tap Restart to start over anytime.</Text>
+            {locale.steps.map((step) => (
+              <Text key={step} style={styles.instructionItem}>{step}</Text>
+            ))}
           </View>
 
           {hasSavedGame && (
             <Pressable style={styles.continueGameButton} onPress={onContinueGame}>
-              <Text style={styles.continueGameButtonText}>Resume Last Game</Text>
+              <Text style={styles.continueGameButtonText}>{locale.buttonResume}</Text>
             </Pressable>
           )}
           <Pressable style={styles.startGameButton} onPress={onStartGame}>
-            <Text style={styles.startGameButtonText}>New Game</Text>
+            <Text style={styles.startGameButtonText}>{locale.buttonStart}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -75,6 +112,29 @@ const styles = StyleSheet.create({
     color: '#fdf0d5',
     fontSize: 30,
     fontWeight: '800',
+  },
+  languageToggleRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  languageToggleButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#fdf0d5',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+  },
+  languageToggleButtonActive: {
+    backgroundColor: '#fdf0d5',
+  },
+  languageToggleText: {
+    color: '#fdf0d5',
+    fontWeight: '700',
+  },
+  languageToggleTextActive: {
+    color: '#0b132b',
   },
   instructionCard: {
     width: '100%',
