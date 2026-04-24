@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b132b',
   },
   headerContainer: {
-    paddingTop: ANDROID_TOP_PADDING + 8,
+    paddingTop: ANDROID_TOP_PADDING + 12,
     paddingHorizontal: 16,
     paddingBottom: 6,
   },
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   languageToggleRow: {
-    marginTop: 12,
+    marginTop: 20,
     flexDirection: 'row',
     gap: 8,
   },
