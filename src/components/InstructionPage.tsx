@@ -47,7 +47,7 @@ export default function InstructionPage({ onStartGame, onContinueGame, hasSavedG
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.headerContainer}>
-        <Text style={styles.instructionTitle}>{locale.title}</Text>
+        <Text style={styles.appTitle}>Candy Break</Text>
         <View style={styles.languageToggleRow}>
           <Pressable
             style={[styles.languageToggleButton, language === 'ko' && styles.languageToggleButtonActive]}
@@ -63,11 +63,9 @@ export default function InstructionPage({ onStartGame, onContinueGame, hasSavedG
           </Pressable>
         </View>
       </View>
-      <ScrollView
-        contentContainerStyle={styles.instructionScrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.instructionScrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.instructionContainer}>
+          <Text style={styles.instructionSectionTitleCenter}>{locale.title}</Text>
           <View style={styles.instructionCard}>
             {locale.steps.map((step) => (
               <Text key={step} style={styles.instructionItem}>{step}</Text>
@@ -97,6 +95,7 @@ const styles = StyleSheet.create({
     paddingTop: ANDROID_TOP_PADDING + 12,
     paddingHorizontal: 16,
     paddingBottom: 6,
+    alignItems: 'center',
   },
   instructionScrollContent: {
     flexGrow: 1,
@@ -113,10 +112,17 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
+  appTitle: {
+    color: '#fdf0d5',
+    fontSize: 34,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
   languageToggleRow: {
-    marginTop: 20,
+    marginTop: 12,
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'center',
   },
   languageToggleButton: {
     borderRadius: 999,
@@ -149,6 +155,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     textTransform: 'uppercase',
+  },
+  instructionSectionTitleCenter: {
+    color: '#ffd166',
+    fontSize: 15,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   instructionItem: {
     color: '#fdf0d5',
