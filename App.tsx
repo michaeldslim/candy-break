@@ -446,11 +446,6 @@ export default function App() {
             </View>
           </View>
 
-          <View style={styles.shapeStageCard}>
-            <Text style={styles.shapeStageLabel}>Current Shape</Text>
-            <Text style={styles.shapeStageValue}>{shapeLabel}</Text>
-          </View>
-
           <View style={styles.controlsRow}>
             <Pressable style={styles.controlButton} onPress={restart} onLongPress={restartFromLevelOne} delayLongPress={450}>
               <Text style={styles.controlText}>Restart</Text>
