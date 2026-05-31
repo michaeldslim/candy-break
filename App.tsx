@@ -512,18 +512,15 @@ export default function App() {
                           {
                             width: cellSize,
                             height: cellSize,
-                            backgroundColor: isPlayable
-                              ? 'transparent'
-                              : 'transparent',
-                            borderWidth:
-                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
+                            backgroundColor: isPlayable ? 'transparent' : '#0f2038',
+                            borderWidth: !isPlayable ? 0 : selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
                             borderColor:
                               selectedCell?.row === rowIndex && selectedCell?.col === colIndex
                                 ? '#fdf0d5'
                                 : hintSet.has(`${rowIndex}:${colIndex}`)
                                   ? '#ffd166'
                                   : '#0f1a34',
-                            opacity: isPlayable ? 1 : 0,
+                            opacity: 1,
                           },
                           isMatched
                             ? {
