@@ -7,12 +7,11 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
+  View,
   StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   useWindowDimensions,
-  View,
 } from 'react-native';
 import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
@@ -426,11 +425,7 @@ export default function App() {
           <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
         </View>
       </View>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.scrollContent}>
         <View style={styles.container}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
@@ -603,7 +598,7 @@ export default function App() {
           </View>
         </View>
         <Fireworks visible={showFireworks} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -618,11 +613,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   scrollContent: {
-    flexGrow: 1,
+    flex: 1,
     paddingBottom: 34,
   },
   container: {
-    paddingTop: 28,
+    flex: 1,
+    paddingTop: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
