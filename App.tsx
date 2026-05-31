@@ -7,12 +7,11 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
+  View,
   StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   useWindowDimensions,
-  View,
 } from 'react-native';
 import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
@@ -426,11 +425,7 @@ export default function App() {
           <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
         </View>
       </View>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.scrollContent}>
         <View style={styles.container}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
@@ -512,18 +507,15 @@ export default function App() {
                           {
                             width: cellSize,
                             height: cellSize,
-                            backgroundColor: isPlayable
-                              ? 'transparent'
-                              : 'transparent',
-                            borderWidth:
-                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
+                            backgroundColor: isPlayable ? 'transparent' : '#0f2038',
+                            borderWidth: !isPlayable ? 0 : selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
                             borderColor:
                               selectedCell?.row === rowIndex && selectedCell?.col === colIndex
                                 ? '#fdf0d5'
                                 : hintSet.has(`${rowIndex}:${colIndex}`)
                                   ? '#ffd166'
                                   : '#0f1a34',
-                            opacity: isPlayable ? 1 : 0,
+                            opacity: 1,
                           },
                           isMatched
                             ? {
@@ -606,7 +598,7 @@ export default function App() {
           </View>
         </View>
         <Fireworks visible={showFireworks} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -621,11 +613,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   scrollContent: {
-    flexGrow: 1,
+    flex: 1,
     paddingBottom: 34,
   },
   container: {
-    paddingTop: 28,
+    flex: 1,
+    paddingTop: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
