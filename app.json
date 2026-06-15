@@ -2,7 +2,7 @@
   "expo": {
     "name": "Candy Break",
     "slug": "candybreak",
-    "version": "1.0.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -32,7 +32,7 @@
     "updates": {
       "url": "https://u.expo.dev/32531a0a-90b4-4b62-bbac-e6f94d8004d8"
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.2.1",
     "extra": {
       "eas": {
         "projectId": "32531a0a-90b4-4b62-bbac-e6f94d8004d8"
