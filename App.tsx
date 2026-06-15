@@ -26,7 +26,7 @@ const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
 
 const HORIZONTAL_PADDING = 24;
 const BOARD_CONTAINER_PADDING = 12;
-const MAX_CELL_SIZE = 46;
+const MAX_CELL_SIZE = 80; // 사실상 캡 제거 (어떤 폰이든 byWidth/byHeight가 자연히 제한)
 const MIN_CELL_SIZE = 22;
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 const MATCH_ANIMATION_MS = 220;
