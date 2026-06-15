@@ -28,80 +28,171 @@ const HORIZONTAL_PADDING = 24;
 const BOARD_CONTAINER_PADDING = 12;
 const MAX_CELL_SIZE = 46;
 const MIN_CELL_SIZE = 22;
-const BOARD_HEIGHT_RATIO = 0.6;
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 const MATCH_ANIMATION_MS = 220;
 
 type SpecialType = 'striped-h' | 'striped-v' | 'rainbow';
 
 function SpecialOverlay({ type, cellSize }: { type: SpecialType; cellSize: number }) {
-  const [opacity, setOpacity] = useState(1);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const STEPS = 20;
-    let step = 0;
-    const id = setInterval(() => {
-      step = (step + 1) % STEPS;
-      // 0–9: fade out 1→0.15, 10–19: fade in 0.15→1
-      const half = STEPS / 2;
-      const newOpacity = step < half
-        ? 1 - (step / half) * 0.85
-        : 0.15 + ((step - half) / half) * 0.85;
-      setOpacity(newOpacity);
-    }, 50); // 20 steps × 50ms = 1s cycle
-    return () => clearInterval(id);
-  }, []);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  const opacity = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
+  const scale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.05] });
 
   if (type === 'striped-h') {
+    // Double arrow pointing left & right  ←→
     return (
-      <View
+      <Animated.View
         pointerEvents="none"
         style={{
           position: 'absolute',
-          top: (cellSize - 6) / 2,
+          top: 0, left: 0, right: 0, bottom: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity,
+          transform: [{ scale }],
+        }}
+      >
+        {/* Left arrowhead */}
+        <View style={{
+          position: 'absolute',
           left: cellSize * 0.06,
-          width: cellSize * 0.88,
-          height: 6,
+          width: 0, height: 0,
+          borderTopWidth: cellSize * 0.18,
+          borderBottomWidth: cellSize * 0.18,
+          borderRightWidth: cellSize * 0.22,
+          borderTopColor: 'transparent',
+          borderBottomColor: 'transparent',
+          borderRightColor: 'rgba(255,255,255,0.95)',
+        }} />
+        {/* Center bar */}
+        <View style={{
+          width: cellSize * 0.5,
+          height: 5,
           borderRadius: 3,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          opacity,
-        }}
-      />
+          backgroundColor: 'rgba(255,255,255,0.95)',
+        }} />
+        {/* Right arrowhead */}
+        <View style={{
+          position: 'absolute',
+          right: cellSize * 0.06,
+          width: 0, height: 0,
+          borderTopWidth: cellSize * 0.18,
+          borderBottomWidth: cellSize * 0.18,
+          borderLeftWidth: cellSize * 0.22,
+          borderTopColor: 'transparent',
+          borderBottomColor: 'transparent',
+          borderLeftColor: 'rgba(255,255,255,0.95)',
+        }} />
+      </Animated.View>
     );
   }
+
   if (type === 'striped-v') {
+    // Double arrow pointing up & down  ↑↓
     return (
-      <View
+      <Animated.View
         pointerEvents="none"
         style={{
           position: 'absolute',
-          left: (cellSize - 6) / 2,
-          top: cellSize * 0.06,
-          width: 6,
-          height: cellSize * 0.88,
-          borderRadius: 3,
-          backgroundColor: 'rgba(255,255,255,0.9)',
+          top: 0, left: 0, right: 0, bottom: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
           opacity,
+          transform: [{ scale }],
         }}
-      />
+      >
+        {/* Up arrowhead */}
+        <View style={{
+          position: 'absolute',
+          top: cellSize * 0.06,
+          width: 0, height: 0,
+          borderLeftWidth: cellSize * 0.18,
+          borderRightWidth: cellSize * 0.18,
+          borderBottomWidth: cellSize * 0.22,
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          borderBottomColor: 'rgba(255,255,255,0.95)',
+        }} />
+        {/* Center bar */}
+        <View style={{
+          width: 5,
+          height: cellSize * 0.5,
+          borderRadius: 3,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+        }} />
+        {/* Down arrowhead */}
+        <View style={{
+          position: 'absolute',
+          bottom: cellSize * 0.06,
+          width: 0, height: 0,
+          borderLeftWidth: cellSize * 0.18,
+          borderRightWidth: cellSize * 0.18,
+          borderTopWidth: cellSize * 0.22,
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          borderTopColor: 'rgba(255,255,255,0.95)',
+        }} />
+      </Animated.View>
     );
   }
-  // rainbow
+
+  // Rainbow — rotating star burst
+  const spin = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] });
   return (
-    <View
+    <Animated.View
       pointerEvents="none"
       style={{
         position: 'absolute',
-        top: (cellSize - cellSize * 0.7) / 2,
-        left: (cellSize - cellSize * 0.7) / 2,
-        width: cellSize * 0.7,
-        height: cellSize * 0.7,
-        borderRadius: cellSize * 0.35,
-        borderWidth: 3,
-        borderColor: '#fff',
-        backgroundColor: 'rgba(255,255,255,0.2)',
+        top: 0, left: 0, right: 0, bottom: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
         opacity,
+        transform: [{ scale }, { rotate: spin }],
       }}
-    />
+    >
+      {/* 4-point star: two overlapping rectangles */}
+      <View style={{
+        position: 'absolute',
+        width: cellSize * 0.62,
+        height: cellSize * 0.18,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+      }} />
+      <View style={{
+        position: 'absolute',
+        width: cellSize * 0.18,
+        height: cellSize * 0.62,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+      }} />
+      <View style={{
+        position: 'absolute',
+        width: cellSize * 0.5,
+        height: cellSize * 0.14,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,215,0,0.85)',
+        transform: [{ rotate: '45deg' }],
+      }} />
+      <View style={{
+        position: 'absolute',
+        width: cellSize * 0.14,
+        height: cellSize * 0.5,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,215,0,0.85)',
+        transform: [{ rotate: '45deg' }],
+      }} />
+    </Animated.View>
   );
 }
 
@@ -115,7 +206,6 @@ export default function App() {
     selectedCell,
     matchedCellKeys,
     isResolving,
-    shapeLabel,
     goal,
     goalRemaining,
     movesLeft,
@@ -135,7 +225,14 @@ export default function App() {
     bestStars,
     hasSavedGame,
     resumeSavedGame,
+    playStyle,
+    targetColor,
+    frozenCells,
+    comboMultiplier,
+    timerSecondsLeft,
   } = useCandyBreak();
+
+  const [hudHeight, setHudHeight] = useState(0);
 
   const hintSet = useMemo(() => new Set(hintCells?.map(p => `${p.row}:${p.col}`) ?? []), [hintCells]);
 
@@ -260,11 +357,10 @@ export default function App() {
   }, []);
 
   const cellSize = useMemo(() => {
-    const availableWidth =
-      windowWidth - HORIZONTAL_PADDING - BOARD_CONTAINER_PADDING * 2;
+    const availableWidth = windowWidth - HORIZONTAL_PADDING - BOARD_CONTAINER_PADDING * 2;
     const availableHeight = Math.max(
       220,
-      windowHeight * BOARD_HEIGHT_RATIO - BOARD_CONTAINER_PADDING * 2,
+      windowHeight - hudHeight - BOARD_CONTAINER_PADDING * 2 - 16,
     );
     const columns = board[0]?.length ?? 1;
     const rows = board.length || 1;
@@ -272,7 +368,7 @@ export default function App() {
     const byHeight = Math.floor(availableHeight / rows);
     const computed = Math.min(byWidth, byHeight);
     return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, computed));
-  }, [board, windowHeight, windowWidth]);
+  }, [board, hudHeight, windowHeight, windowWidth]);
 
   const goalProgress = Math.max(0, goal - goalRemaining);
   const matchedSet = useMemo(() => new Set(matchedCellKeys), [matchedCellKeys]);
@@ -413,20 +509,34 @@ export default function App() {
   }
 
 
+  // Dynamic 4th HUD card based on play style
+  const fourthCard = (() => {
+    switch (playStyle) {
+      case 'timer-attack':
+        return { label: 'Time', value: String(timerSecondsLeft ?? 0), warn: (timerSecondsLeft ?? 999) <= 15 };
+      case 'multiplier-rush':
+        return { label: 'Multi', value: `x${comboMultiplier}`, warn: false };
+      case 'locked-tiles':
+        return { label: 'Frozen', value: String(frozenCells.filter(fc => fc.hitsRemaining > 0).length), warn: false };
+      default:
+        return { label: 'Moves', value: String(movesLeft), warn: movesLeft <= 5 };
+    }
+  })();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>Candy Break</Text>
-        <View style={styles.topRow}>
-          <Text style={styles.starsValue}>
-            STARS: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
-          </Text>
-          <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
+      <View onLayout={(e) => setHudHeight(e.nativeEvent.layout.height)}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Candy Break</Text>
+          <View style={styles.topRow}>
+            <Text style={styles.starsValue}>
+              STARS: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
+            </Text>
+            <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.scrollContent}>
-        <View style={styles.container}>
+        <View style={styles.hudContent}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Score</Text>
@@ -437,14 +547,39 @@ export default function App() {
               <Text style={styles.statValue}>{level}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Goal</Text>
+              <Text style={styles.statLabel}>{playStyle === 'multiplier-rush' ? 'Score Goal' : 'Goal'}</Text>
               <Text style={styles.statValue}>{goalProgress}/{goal}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Moves</Text>
-              <Text style={[styles.statValue, movesLeft <= 5 ? styles.statValueWarn : null]}>{movesLeft}</Text>
+              <Text style={styles.statLabel}>{fourthCard.label}</Text>
+              <Text style={[styles.statValue, fourthCard.warn ? styles.statValueWarn : null]}>{fourthCard.value}</Text>
             </View>
           </View>
+
+          {(() => {
+            const bannerConfig: Record<string, { icon: string; label: string; hint: string; accent: string }> = {
+              'classic':         { icon: '🍬', label: 'Classic',          hint: `Clear ${goal} candies`,                    accent: '#3a506b' },
+              'color-target':    { icon: '🎯', label: 'Color Target',     hint: `Only ${targetColor ?? '?'} candies count`, accent: '#7b2d8b' },
+              'locked-tiles':    { icon: '❄️', label: 'Locked Tiles',     hint: 'Match next to ❄️ to thaw',                 accent: '#1a5276' },
+              'multiplier-rush': { icon: '✨', label: 'Multiplier Rush',  hint: 'Combos double your score!',                accent: '#7d6608' },
+              'bomb-storm':      { icon: '💣', label: 'Bomb Storm',       hint: 'Tap the bomb to advance',                  accent: '#6e2c00' },
+              'timer-attack':    { icon: '⏱️', label: 'Timer Attack',     hint: `Clear ${goal} before time runs out`,       accent: '#1a5c3a' },
+            };
+            const cfg = bannerConfig[playStyle];
+            if (!cfg) return null;
+            return (
+              <View style={[styles.stageBanner, { backgroundColor: cfg.accent }]}>
+                <Text style={styles.stageBannerIcon}>{cfg.icon}</Text>
+                <Text style={styles.stageBannerLine} numberOfLines={1}>
+                  <Text style={styles.stageBannerLabel}>{cfg.label}</Text>
+                  <Text style={styles.stageBannerHint}>  {cfg.hint}</Text>
+                </Text>
+                {playStyle === 'color-target' && targetColor ? (
+                  <Image source={CANDY_IMAGES[targetColor]} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                ) : null}
+              </View>
+            );
+          })()}
 
           <View style={styles.controlsRow}>
             <Pressable style={styles.controlButton} onPress={restart} onLongPress={restartFromLevelOne} delayLongPress={450}>
@@ -454,143 +589,187 @@ export default function App() {
               <Text style={styles.controlText}>Hint</Text>
             </Pressable>
           </View>
+        </View>
+      </View>
 
-          <View style={styles.boardContainer}>
-            {board.map((row, rowIndex) => (
-              <View key={`row-${rowIndex}`} style={styles.boardRow}>
-                {row.map((cell, colIndex) => {
-                    const isBomb = !!bombPosition && bombPosition.row === rowIndex && bombPosition.col === colIndex;
-                    const isMatched = matchedSet.has(`${rowIndex}:${colIndex}`);
-                    const isPlayable = !!shapeMask[rowIndex]?.[colIndex];
+      <View style={styles.boardWrapper}>
+        <View style={styles.boardContainer}>
+          {board.map((row, rowIndex) => (
+            <View key={`row-${rowIndex}`} style={styles.boardRow}>
+              {row.map((cell, colIndex) => {
+                  const isBomb = !!bombPosition && bombPosition.row === rowIndex && bombPosition.col === colIndex;
+                  const isMatched = matchedSet.has(`${rowIndex}:${colIndex}`);
+                  const isPlayable = !!shapeMask[rowIndex]?.[colIndex];
+                  const frozenCell = frozenCells.find(fc => fc.row === rowIndex && fc.col === colIndex);
+                  const isFrozen = !!(frozenCell && frozenCell.hitsRemaining > 0);
 
-                    if (isBomb) {
-                      return (
-                        <Animated.View
-                          key={`cell-${rowIndex}-${colIndex}`}
-                          style={[
-                            styles.cell,
-                            {
-                              width: cellSize,
-                              height: cellSize,
-                              backgroundColor: '#ffd166',
-                              borderWidth: 2,
-                              borderColor: '#fff7c0',
-                              transform: [{ scale: bombScale }],
-                              opacity: bombOpacity,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            },
-                          ]}
-                        >
-                          <Pressable
-                            onPress={() => tapCell(rowIndex, colIndex)}
-                            style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <Text style={{ fontSize: cellSize * 0.42, lineHeight: cellSize * 0.52 }}>⚡</Text>
-                          </Pressable>
-                        </Animated.View>
-                      );
-                    }
-
+                  if (isBomb) {
                     return (
-                      <View key={`cell-${rowIndex}-${colIndex}`} style={{ width: cellSize, height: cellSize }}>
-                      <AnimatedPressable
-                        onPress={() => tapCell(rowIndex, colIndex)}
-                        disabled={!isPlayable || gameOver || isResolving}
+                      <Animated.View
+                        key={`cell-${rowIndex}-${colIndex}`}
                         style={[
                           styles.cell,
                           {
                             width: cellSize,
                             height: cellSize,
-                            backgroundColor: isPlayable ? 'transparent' : '#0f2038',
-                            borderWidth: !isPlayable ? 0 : selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
-                            borderColor:
-                              selectedCell?.row === rowIndex && selectedCell?.col === colIndex
-                                ? '#fdf0d5'
-                                : hintSet.has(`${rowIndex}:${colIndex}`)
-                                  ? '#ffd166'
-                                  : '#0f1a34',
-                            opacity: 1,
+                            backgroundColor: '#ffd166',
+                            borderWidth: 2,
+                            borderColor: '#fff7c0',
+                            transform: [{ scale: bombScale }],
+                            opacity: bombOpacity,
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           },
-                          isMatched
-                            ? {
-                                transform: [{ scale: matchScale }, { rotate: matchRotate }],
-                                opacity: matchOpacity,
-                              }
-                            : hintSet.has(`${rowIndex}:${colIndex}`)
-                              ? {
-                                  transform: [{ scale: hintScale }],
-                                  opacity: hintOpacity,
-                                }
-                              : null,
                         ]}
                       >
-                        {cell && isPlayable ? (
+                        <Pressable
+                          onPress={() => tapCell(rowIndex, colIndex)}
+                          style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Text style={{ fontSize: cellSize * 0.42, lineHeight: cellSize * 0.52 }}>⚡</Text>
+                        </Pressable>
+                      </Animated.View>
+                    );
+                  }
+
+                  if (isFrozen) {
+                    return (
+                      <View
+                        key={`cell-${rowIndex}-${colIndex}`}
+                        style={{
+                          width: cellSize,
+                          height: cellSize,
+                          borderRadius: 7,
+                          backgroundColor: '#1a3a5c',
+                          borderWidth: 2,
+                          borderColor: '#4fc3f7',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {cell ? (
                           <Image
                             source={CANDY_IMAGES[cell.candyBreak]}
-                            style={{ width: cellSize * 0.92, height: cellSize * 0.92 }}
+                            style={{ width: cellSize * 0.92, height: cellSize * 0.92, opacity: 0.45 }}
                             resizeMode="contain"
                           />
                         ) : null}
-                      </AnimatedPressable>
-                        {cell?.special && isPlayable ? (
-                          <SpecialOverlay type={cell.special} cellSize={cellSize} />
-                        ) : null}
+                        <Text
+                          style={{
+                            position: 'absolute',
+                            fontSize: cellSize * (frozenCell!.hitsRemaining === 2 ? 0.28 : 0.38),
+                          }}
+                        >
+                          {frozenCell!.hitsRemaining === 2 ? '❄️❄️' : '❄️'}
+                        </Text>
                       </View>
                     );
-                  })}
-              </View>
-            ))}
+                  }
 
-            {gameOver ? (
-              <View style={styles.gameOverOverlay}>
-                <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
-                <Text style={styles.gameOverBody}>
-                  {won ? 'Great matching! All shapes completed.' : `No moves left on ${shapeLabel}. Tap Restart to try again.`}
-                </Text>
-              </View>
-            ) : null}
+                  return (
+                    <View key={`cell-${rowIndex}-${colIndex}`} style={{ width: cellSize, height: cellSize }}>
+                    <AnimatedPressable
+                      onPress={() => tapCell(rowIndex, colIndex)}
+                      disabled={!isPlayable || gameOver || isResolving}
+                      style={[
+                        styles.cell,
+                        {
+                          width: cellSize,
+                          height: cellSize,
+                          backgroundColor: 'transparent',
+                          borderWidth: selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
+                          borderColor:
+                            selectedCell?.row === rowIndex && selectedCell?.col === colIndex
+                              ? '#fdf0d5'
+                              : hintSet.has(`${rowIndex}:${colIndex}`)
+                                ? '#ffd166'
+                                : '#0f1a34',
+                          opacity: 1,
+                        },
+                        isMatched
+                          ? {
+                              transform: [{ scale: matchScale }, { rotate: matchRotate }],
+                              opacity: matchOpacity,
+                            }
+                          : hintSet.has(`${rowIndex}:${colIndex}`)
+                            ? {
+                                transform: [{ scale: hintScale }],
+                                opacity: hintOpacity,
+                              }
+                            : null,
+                      ]}
+                    >
+                      {cell && isPlayable ? (
+                        <Image
+                          source={CANDY_IMAGES[cell.candyBreak]}
+                          style={{ width: cellSize * 0.92, height: cellSize * 0.92 }}
+                          resizeMode="contain"
+                        />
+                      ) : null}
+                    </AnimatedPressable>
+                      {cell?.special && isPlayable ? (
+                        <SpecialOverlay type={cell.special} cellSize={cellSize} />
+                      ) : null}
+                    </View>
+                  );
+                })}
+            </View>
+          ))}
 
-            {stageStars !== null ? (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.stageCompleteOverlay,
-                  {
-                    opacity: stageCompleteAnim,
-                    transform: [
-                      {
-                        scale: stageCompleteAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.6, 1],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Text style={styles.stageCompleteTitle}>Stage Clear!</Text>
-                <Text style={styles.stageCompleteStars}>
-                  {[1, 2, 3].map((i) => (i <= stageStars ? '★' : '☆')).join('  ')}
-                </Text>
-              </Animated.View>
-            ) : null}
+          {gameOver ? (
+            <View style={styles.gameOverOverlay}>
+              <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
+              <Text style={styles.gameOverBody}>
+                {won
+                  ? 'Great matching! All stages completed.'
+                  : playStyle === 'timer-attack'
+                    ? 'Time ran out! Tap Restart to try again.'
+                    : playStyle === 'locked-tiles'
+                      ? 'Too many frozen tiles remain. Tap Restart.'
+                      : 'No moves left. Tap Restart to try again.'}
+              </Text>
+            </View>
+          ) : null}
 
-            {combo >= 2 ? (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.comboOverlay,
-                  {
-                    transform: [{ scale: comboScale }, { translateY: comboTranslateY }],
-                    opacity: comboOpacity,
-                  },
-                ]}
-              >
-                <Text style={styles.comboText}>+combo x{combo}!</Text>
-              </Animated.View>
-            ) : null}
-          </View>
+          {stageStars !== null ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.stageCompleteOverlay,
+                {
+                  opacity: stageCompleteAnim,
+                  transform: [
+                    {
+                      scale: stageCompleteAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.6, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text style={styles.stageCompleteTitle}>Stage Clear!</Text>
+              <Text style={styles.stageCompleteStars}>
+                {[1, 2, 3].map((i) => (i <= stageStars ? '★' : '☆')).join('  ')}
+              </Text>
+            </Animated.View>
+          ) : null}
+
+          {combo >= 2 ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.comboOverlay,
+                {
+                  transform: [{ scale: comboScale }, { translateY: comboTranslateY }],
+                  opacity: comboOpacity,
+                },
+              ]}
+            >
+              <Text style={styles.comboText}>+combo x{combo}!</Text>
+            </Animated.View>
+          ) : null}
         </View>
         <Fireworks visible={showFireworks} />
       </View>
@@ -607,15 +786,14 @@ const styles = StyleSheet.create({
     paddingTop: ANDROID_TOP_PADDING + 20,
     paddingHorizontal: 12,
   },
-  scrollContent: {
-    flex: 1,
-    paddingBottom: 34,
-  },
-  container: {
-    flex: 1,
-    paddingTop: 12,
+  hudContent: {
     paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  boardWrapper: {
+    flex: 1,
     alignItems: 'center',
+    paddingBottom: 12,
   },
   topRow: {
     marginTop: 6,
@@ -623,9 +801,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  bestContainer: {
-    alignItems: 'flex-end',
   },
   bestValue: {
     color: '#ffd166',
@@ -645,10 +820,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statsRow: {
-    marginTop: 8,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  stageBanner: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  stageBannerIcon: {
+    fontSize: 18,
+  },
+  stageBannerLine: {
+    flex: 1,
+    fontSize: 12,
+  },
+  stageBannerLabel: {
+    color: '#fdf0d5',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  stageBannerHint: {
+    color: 'rgba(253,240,213,0.75)',
+    fontSize: 12,
+    fontWeight: '400',
   },
   statCard: {
     flex: 1,
@@ -674,33 +876,11 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
   },
   boardContainer: {
-    marginTop: 16,
+    marginTop: 8,
     borderRadius: 12,
     backgroundColor: 'transparent',
     padding: BOARD_CONTAINER_PADDING,
     position: 'relative',
-  },
-  shapeStageCard: {
-    marginTop: 8,
-    width: '100%',
-    borderRadius: 10,
-    backgroundColor: '#1c2541',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  shapeStageLabel: {
-    color: '#a9bcd0',
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  shapeStageValue: {
-    color: '#fdf0d5',
-    fontSize: 15,
-    fontWeight: '800',
   },
   boardRow: {
     flexDirection: 'row',
@@ -710,16 +890,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0f1a34',
-  },
-  specialOverlay: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-  },
-  rainbowOverlay: {
-    position: 'absolute',
-    borderWidth: 3,
-    borderColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   gameOverOverlay: {
     position: 'absolute',
@@ -784,7 +954,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   controlsRow: {
-    marginTop: 8,
+    marginTop: 6,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'center',

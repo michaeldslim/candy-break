@@ -27,6 +27,14 @@ export const isPlayableCell = (mask: boolean[][], row: number, col: number): boo
 export const countPlayableCells = (mask: boolean[][]): number =>
   mask.reduce((sum, row) => sum + row.filter(Boolean).length, 0);
 
+export const getAdjacentPositions = (row: number, col: number, rows: number, cols: number): IPosition[] =>
+  [
+    { row: row - 1, col },
+    { row: row + 1, col },
+    { row, col: col - 1 },
+    { row, col: col + 1 },
+  ].filter(p => p.row >= 0 && p.row < rows && p.col >= 0 && p.col < cols);
+
 export const getRandomPlayablePosition = (mask: boolean[][]): IPosition | null => {
   const playable: IPosition[] = [];
   for (let row = 0; row < mask.length; row += 1) {
@@ -81,25 +89,13 @@ export const createInitialBoard = (mask: boolean[][], maxKinds: number): IBoard 
 export const areAdjacent = (from: IPosition, to: IPosition): boolean =>
   Math.abs(from.row - to.row) + Math.abs(from.col - to.col) === 1;
 
-const markRun = (positions: Set<string>, row: number, fromCol: number, toColExclusive: number): void => {
-  for (let col = fromCol; col < toColExclusive; col += 1) {
-    positions.add(keyOf(row, col));
-  }
-};
-
-const markColumnRun = (positions: Set<string>, col: number, fromRow: number, toRowExclusive: number): void => {
-  for (let row = fromRow; row < toRowExclusive; row += 1) {
-    positions.add(keyOf(row, col));
-  }
-};
-
 // Describes a detected run that may spawn a special tile
 interface IRunResult {
   positions: IPosition[];
   spawnSpecial?: { pos: IPosition; tile: ICandyBreak };
 }
 
-const detectRuns = (board: IBoard, mask: boolean[][], minMatch: number): IRunResult[] => {
+export const detectRuns = (board: IBoard, mask: boolean[][], minMatch: number): IRunResult[] => {
   const rows = board.length;
   const cols = board[0]?.length ?? 0;
   const results: IRunResult[] = [];
@@ -313,6 +309,7 @@ export const resolveBoard = (
 ): IResolveResult => {
   let comboCount = 0;
   let totalCleared = 0;
+  const clearedByColor: Record<string, number> = {};
   let currentBoard = cloneBoard(board);
 
   while (true) {
@@ -323,6 +320,12 @@ export const resolveBoard = (
 
     comboCount += 1;
     totalCleared += matches.length;
+    for (const p of matches) {
+      const cell = currentBoard[p.row]?.[p.col];
+      if (cell) {
+        clearedByColor[cell.candyBreak] = (clearedByColor[cell.candyBreak] ?? 0) + 1;
+      }
+    }
     const cleared = clearMatchedCells(currentBoard, mask, minMatch);
     currentBoard = dropAndRefill(cleared, mask, maxKinds);
   }
@@ -331,6 +334,7 @@ export const resolveBoard = (
     board: currentBoard,
     totalCleared,
     comboCount,
+    clearedByColor,
   };
 };
 
@@ -382,12 +386,14 @@ export const trySwapAndResolve = (
   matchedPositions: IPosition[];
   totalCleared: number;
   comboCount: number;
+  clearedByColor: Record<string, number>;
 } => {
+  const empty = { moved: false, board, previewBoard: board, matchedPositions: [], totalCleared: 0, comboCount: 0, clearedByColor: {} };
   if (!isPlayableCell(mask, from.row, from.col) || !isPlayableCell(mask, to.row, to.col)) {
-    return { moved: false, board, previewBoard: board, matchedPositions: [], totalCleared: 0, comboCount: 0 };
+    return empty;
   }
   if (!areAdjacent(from, to)) {
-    return { moved: false, board, previewBoard: board, matchedPositions: [], totalCleared: 0, comboCount: 0 };
+    return empty;
   }
 
   const swapped = swapCells(board, from, to);
@@ -398,7 +404,7 @@ export const trySwapAndResolve = (
   const immediateMatches = findMatches(afterSpecials, mask, minMatch);
 
   if (!activated && immediateMatches.length === 0) {
-    return { moved: false, board, previewBoard: board, matchedPositions: [], totalCleared: 0, comboCount: 0 };
+    return empty;
   }
 
   const resolved = resolveBoard(afterSpecials, mask, minMatch, maxKinds);
@@ -409,11 +415,13 @@ export const trySwapAndResolve = (
     matchedPositions: immediateMatches,
     totalCleared: resolved.totalCleared,
     comboCount: resolved.comboCount,
+    clearedByColor: resolved.clearedByColor,
   };
 };
 
 export interface ICascadeStep {
   matchedPositions: IPosition[];
+  matchedByColor: Record<string, number>;
   nextBoard: IBoard;
 }
 
@@ -437,16 +445,23 @@ export const resolveAllSteps = (
   }
   if (preCleared.length > 0) {
     const dropped = dropAndRefill(currentBoard, mask, maxKinds);
-    steps.push({ matchedPositions: preCleared, nextBoard: dropped });
+    steps.push({ matchedPositions: preCleared, matchedByColor: {}, nextBoard: dropped });
     currentBoard = dropped;
   }
 
   while (true) {
     const matches = findMatches(currentBoard, mask, minMatch);
     if (matches.length === 0) break;
+    const matchedByColor: Record<string, number> = {};
+    for (const p of matches) {
+      const cell = currentBoard[p.row]?.[p.col];
+      if (cell) {
+        matchedByColor[cell.candyBreak] = (matchedByColor[cell.candyBreak] ?? 0) + 1;
+      }
+    }
     const cleared = clearMatchedCells(currentBoard, mask, minMatch);
     const next = dropAndRefill(cleared, mask, maxKinds);
-    steps.push({ matchedPositions: matches, nextBoard: next });
+    steps.push({ matchedPositions: matches, matchedByColor, nextBoard: next });
     currentBoard = next;
   }
 
