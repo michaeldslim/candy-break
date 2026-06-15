@@ -12,6 +12,15 @@ export const SCORE_EXTRA_TILE_POINTS = 5;
 export const SCORE_COMBO_POINTS = 10;
 export const BOMB_SCORE_BONUS = 50;
 
+export const TIMER_ATTACK_SECONDS = 90;
+export const LOCKED_TILES_FREEZE_RATIO = 0.2;  // 20% of cells
+export const BOMB_STORM_SPAWN_RATIO = 0.3;     // spawn at 30% moves remaining
+export const BOMB_STORM_RESPAWNS = 1;          // 1 respawn = 2 bombs total
+
+export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () =>
+  Array.from({ length: GAME_BASE_COLS }, () => true)
+);
+
 export const FIREWORK_COLORS = [
   '#FF6B6B',
   '#FFD93D',
@@ -35,94 +44,43 @@ export const GAME_CONFIG: IGameConfig = {
 
 export const GAME_SHAPES: IGameShape[] = [
   {
-    id: 'square',
-    label: 'Square',
-    mask: [
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-    ],
+    id: 'classic',
+    label: 'Classic',
+    mask: FULL_MASK,
+    playStyle: 'classic',
   },
   {
-    id: 'diamond',
-    label: 'Diamond',
-    mask: [
-      [false,false,false,true,true,false,false,false],
-      [false,false,true,true,true,true,false,false],
-      [false,true,true,true,true,true,true,false],
-      [true,true,true,true,true,true,true,true],
-      [false,true,true,true,true,true,true,false],
-      [false,false,true,true,true,true,false,false],
-      [false,false,false,true,true,false,false,false],
-      [false,false,false,true,true,false,false,false],
-      [false,false,true,true,true,true,false,false],
-      [false,true,true,true,true,true,true,false],
-      [true,true,true,true,true,true,true,true],
-      [false,true,true,true,true,true,true,false],
-    ],
+    id: 'color-target',
+    label: 'Color Target',
+    mask: FULL_MASK,
+    playStyle: 'color-target',
   },
   {
-    id: 'plus',
-    label: 'Plus',
-    mask: [
-      [false,false,false,true,true,false,false,false],
-      [false,false,false,true,true,false,false,false],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [false,false,false,true,true,false,false,false],
-      [false,false,false,true,true,false,false,false],
-    ],
+    id: 'locked-tiles',
+    label: 'Locked Tiles',
+    mask: FULL_MASK,
+    playStyle: 'locked-tiles',
   },
   {
-    id: 'ring',
-    label: 'Ring',
-    mask: [
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,false,false,true,true],
-      [true,true,true,true,true,true,true,true],
-      [true,true,true,true,true,true,true,true],
-    ],
+    id: 'multiplier-rush',
+    label: 'Multiplier Rush',
+    mask: FULL_MASK,
+    playStyle: 'multiplier-rush',
+    scoreThreshold: 1500,
   },
   {
-    id: 'hourglass',
-    label: 'Hourglass',
-    mask: [
-      [true,true,true,true,true,true,true,true],
-      [false,true,true,true,true,true,true,false],
-      [false,false,true,true,true,true,false,false],
-      [false,false,false,true,true,false,false,false],
-      [false,false,false,true,true,false,false,false],
-      [false,false,true,true,true,true,false,false],
-      [false,true,true,true,true,true,true,false],
-      [true,true,true,true,true,true,true,true],
-      [false,true,true,true,true,true,true,false],
-      [false,false,true,true,true,true,false,false],
-      [false,false,false,true,true,false,false,false],
-      [true,true,true,true,true,true,true,true],
-    ],
+    id: 'bomb-storm',
+    label: 'Bomb Storm',
+    mask: FULL_MASK,
+    playStyle: 'bomb-storm',
+    bombRespawns: BOMB_STORM_RESPAWNS,
+  },
+  {
+    id: 'timer-attack',
+    label: 'Timer Attack',
+    mask: FULL_MASK,
+    playStyle: 'timer-attack',
+    timerSeconds: TIMER_ATTACK_SECONDS,
   },
 ];
 
