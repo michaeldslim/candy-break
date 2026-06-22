@@ -14,7 +14,6 @@ import { IBoard, IFrozenCell, IPosition, PlayStyle } from '../types';
 import {
   areAdjacent,
   createInitialBoard,
-  findHint,
   getAdjacentPositions,
   getRandomPlayablePosition,
   isPlayableCell,
@@ -53,7 +52,6 @@ interface IUseCandyBreakResult {
   level: number;
   combo: number;
   bombPosition: IPosition | null;
-  hintCells: IPosition[];
   stageStars: 1 | 2 | 3 | null;
   bestStars: 0 | 1 | 2 | 3;
   hasSavedGame: boolean;
@@ -67,7 +65,6 @@ interface IUseCandyBreakResult {
   restart: () => void;
   restartFromLevelOne: () => void;
   resumeSavedGame: () => void;
-  requestHint: () => void;
 }
 
 const START_LEVEL = 1;
@@ -179,9 +176,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [won, setWon] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
-  const [hintCells, setHintCells] = useState<IPosition[]>([]);
   const [stageStars, setStageStars] = useState<1 | 2 | 3 | null>(null);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bestScore, setBestScore] = useState(0);
   const [bestStars, setBestStars] = useState<0 | 1 | 2 | 3>(0);
   const [hasSavedGame, setHasSavedGame] = useState(false);
@@ -264,7 +259,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   useEffect(() => {
     return () => {
       if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, []);
@@ -649,7 +643,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setGameOver(false);
     setBombPosition(null);
     setStageStars(null);
-    setHintCells([]);
     setPlayStyle(shape.playStyle);
     setTargetColor(saved.targetColor ?? null);
     setFrozenCells(saved.frozenCells ?? []);
@@ -664,17 +657,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearTimeout(resolveTimerRef.current);
       resolveTimerRef.current = null;
     }
-    if (hintTimerRef.current) {
-      clearTimeout(hintTimerRef.current);
-      hintTimerRef.current = null;
-    }
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
     AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
     setHasSavedGame(false);
-    setHintCells([]);
     setWon(false);
     setGameOver(false);
     setScore(0);
@@ -688,17 +676,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearTimeout(resolveTimerRef.current);
       resolveTimerRef.current = null;
     }
-    if (hintTimerRef.current) {
-      clearTimeout(hintTimerRef.current);
-      hintTimerRef.current = null;
-    }
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
     AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
     setHasSavedGame(false);
-    setHintCells([]);
     setLevel(START_LEVEL);
     setShapeIndex(0);
     setScore(0);
@@ -724,15 +707,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     applyStageInit(initializeStage(nextIndex, level));
   }, [applyStageInit, level, shapeIndex]);
 
-  const requestHint = useCallback(() => {
-    if (gameOver || won || isResolving) return;
-    const hint = findHint(board, shapeMask, GAME_CONFIG.minMatch, GAME_CONFIG.easyColorKinds);
-    if (!hint) return;
-    setHintCells([hint.from, hint.to]);
-    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    hintTimerRef.current = setTimeout(() => setHintCells([]), 1500);
-  }, [board, gameOver, isResolving, shapeMask, won]);
-
   const goal = useMemo(() => getGoalForStage(shapeIndex, level), [level, shapeIndex]);
 
   return {
@@ -750,7 +724,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     bestScore,
     level,
     bombPosition,
-    hintCells,
     stageStars,
     bestStars,
     hasSavedGame,
@@ -765,6 +738,5 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     restart,
     restartFromLevelOne,
     resumeSavedGame,
-    requestHint,
   };
 };

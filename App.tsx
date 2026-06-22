@@ -215,12 +215,9 @@ export default function App() {
     bestScore,
     level,
     combo,
-    hintCells,
     tapCell,
-    restart,
     restartFromLevelOne,
     bombPosition,
-    requestHint,
     stageStars,
     bestStars,
     hasSavedGame,
@@ -234,15 +231,11 @@ export default function App() {
 
   const [hudHeight, setHudHeight] = useState(0);
 
-  const hintSet = useMemo(() => new Set(hintCells?.map(p => `${p.row}:${p.col}`) ?? []), [hintCells]);
-
   const matchAnim = useRef(new Animated.Value(0)).current;
   const comboAnim = useRef(new Animated.Value(0)).current;
   const stageCompleteAnim = useRef(new Animated.Value(0)).current;
   const bombPulseAnim = useRef(new Animated.Value(0)).current;
   const bombPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const hintPulseAnim = useRef(new Animated.Value(0)).current;
-  const hintPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const matchSoundRef = useRef<Audio.Sound | null>(null);
   const congratsSoundRef = useRef<Audio.Sound | null>(null);
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -281,36 +274,6 @@ export default function App() {
       bombPulseLoopRef.current?.stop();
     };
   }, [bombPulseAnim, bombPosition]);
-
-  // Start/stop hint pulse loop
-  useEffect(() => {
-    if (hintCells && hintCells.length > 0) {
-      hintPulseAnim.setValue(0);
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(hintPulseAnim, {
-            toValue: 1,
-            duration: 380,
-            useNativeDriver: true,
-          }),
-          Animated.timing(hintPulseAnim, {
-            toValue: 0,
-            duration: 380,
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-      hintPulseLoopRef.current = loop;
-      loop.start();
-    } else {
-      hintPulseLoopRef.current?.stop();
-      hintPulseLoopRef.current = null;
-      hintPulseAnim.setValue(0);
-    }
-    return () => {
-      hintPulseLoopRef.current?.stop();
-    };
-  }, [hintCells, hintPulseAnim]);
 
   useEffect(() => {
     let mounted = true;
@@ -380,15 +343,6 @@ export default function App() {
   const bombOpacity = bombPulseAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.75, 1],
-  });
-
-  const hintScale = hintPulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.18],
-  });
-  const hintOpacity = hintPulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.7, 1],
   });
 
   const comboScale = comboAnim.interpolate({
@@ -580,15 +534,6 @@ export default function App() {
               </View>
             );
           })()}
-
-          <View style={styles.controlsRow}>
-            <Pressable style={styles.controlButton} onPress={restart} onLongPress={restartFromLevelOne} delayLongPress={450}>
-              <Text style={styles.controlText}>Restart</Text>
-            </Pressable>
-            <Pressable style={styles.controlButton} onPress={requestHint} disabled={gameOver || isResolving}>
-              <Text style={styles.controlText}>Hint</Text>
-            </Pressable>
-          </View>
         </View>
       </View>
 
@@ -677,13 +622,11 @@ export default function App() {
                           width: cellSize,
                           height: cellSize,
                           backgroundColor: 'transparent',
-                          borderWidth: selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : hintSet.has(`${rowIndex}:${colIndex}`) ? 3 : 1,
+                          borderWidth: selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
                           borderColor:
                             selectedCell?.row === rowIndex && selectedCell?.col === colIndex
                               ? '#fdf0d5'
-                              : hintSet.has(`${rowIndex}:${colIndex}`)
-                                ? '#ffd166'
-                                : '#0f1a34',
+                              : '#0f1a34',
                           opacity: 1,
                         },
                         isMatched
@@ -691,12 +634,7 @@ export default function App() {
                               transform: [{ scale: matchScale }, { rotate: matchRotate }],
                               opacity: matchOpacity,
                             }
-                          : hintSet.has(`${rowIndex}:${colIndex}`)
-                            ? {
-                                transform: [{ scale: hintScale }],
-                                opacity: hintOpacity,
-                              }
-                            : null,
+                          : null,
                       ]}
                     >
                       {cell && isPlayable ? (
@@ -952,31 +890,5 @@ const styles = StyleSheet.create({
     color: '#fdf0d5',
     fontSize: 14,
     textAlign: 'center',
-  },
-  controlsRow: {
-    marginTop: 6,
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  controlButton: {
-    flex: 1,
-    height: 38,
-    marginHorizontal: 3,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3a506b',
-  },
-  controlButtonActive: {
-    backgroundColor: '#118ab2',
-  },
-  controlText: {
-    color: '#fdf0d5',
-    fontSize: 13,
-    fontWeight: '700',
   },
 });
