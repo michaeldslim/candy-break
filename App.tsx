@@ -763,12 +763,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   stageBanner: {
+    width: '98%',
+    alignSelf: 'center',
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
     paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 6,
   },
   stageBannerIcon: {
