@@ -11,7 +11,6 @@ A match-3 puzzle game built with React Native and Expo. Swap adjacent candies to
   - 5+ match → Rainbow tile (clears all candies of a matching color)
 - **Cascade System** — cleared candies drop and refill, triggering chain combos
 - **Bomb Power-up** — appears at ~60% of remaining moves; tap to instantly clear the stage for bonus points
-- **Hint System** — highlights a valid move when you're stuck
 - **Star Rating** — earn 1–3 stars based on moves remaining at win
 - **5 Levels** with increasing difficulty across different board shapes
 
