@@ -218,6 +218,7 @@ export default function App() {
     tapCell,
     restartFromLevelOne,
     bombPosition,
+    bombActivating,
     stageStars,
     bestStars,
     hasSavedGame,
@@ -543,7 +544,9 @@ export default function App() {
           {board.map((row, rowIndex) => (
             <View key={`row-${rowIndex}`} style={styles.boardRow}>
               {row.map((cell, colIndex) => {
-                  const isBomb = !!bombPosition && bombPosition.row === rowIndex && bombPosition.col === colIndex;
+                  const isBomb =
+                    (!!bombPosition && bombPosition.row === rowIndex && bombPosition.col === colIndex) ||
+                    (!!bombActivating && bombActivating.row === rowIndex && bombActivating.col === colIndex);
                   const isMatched = matchedSet.has(`${rowIndex}:${colIndex}`);
                   const isPlayable = !!shapeMask[rowIndex]?.[colIndex];
                   const frozenCell = frozenCells.find(fc => fc.row === rowIndex && fc.col === colIndex);

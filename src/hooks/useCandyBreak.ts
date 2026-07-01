@@ -16,6 +16,7 @@ import {
   createInitialBoard,
   getAdjacentPositions,
   getRandomPlayablePosition,
+  ICascadeStep,
   isPlayableCell,
   resolveAllSteps,
   scoreClear,
@@ -52,6 +53,7 @@ interface IUseCandyBreakResult {
   level: number;
   combo: number;
   bombPosition: IPosition | null;
+  bombActivating: IPosition | null;
   stageStars: 1 | 2 | 3 | null;
   bestStars: 0 | 1 | 2 | 3;
   hasSavedGame: boolean;
@@ -107,6 +109,54 @@ const getGoalForStage = (shapeIndex: number, level: number): number => {
     LEVEL_GOAL_MULTIPLIERS[LEVEL_GOAL_MULTIPLIERS.length - 1] ??
     1;
   return Math.round(baseGoal * multiplier);
+};
+
+const computeGoalAfterSteps = (
+  steps: ICascadeStep[],
+  style: PlayStyle,
+  currentGoalRemaining: number,
+  currentTargetColor: string | null,
+  currentFrozenCells: IFrozenCell[],
+): { goalRemaining: number; frozenCells: IFrozenCell[] } => {
+  const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
+  const clearedByColor: Record<string, number> = {};
+  for (const step of steps) {
+    for (const [color, count] of Object.entries(step.matchedByColor)) {
+      clearedByColor[color] = (clearedByColor[color] ?? 0) + count;
+    }
+  }
+
+  if (style === 'color-target' && currentTargetColor) {
+    const colorCleared = clearedByColor[currentTargetColor] ?? 0;
+    return {
+      goalRemaining: Math.max(0, currentGoalRemaining - colorCleared),
+      frozenCells: currentFrozenCells,
+    };
+  }
+
+  if (style === 'locked-tiles' && currentFrozenCells.length > 0) {
+    const clearedSet = new Set<string>();
+    for (const step of steps) {
+      for (const p of step.matchedPositions) {
+        clearedSet.add(`${p.row}:${p.col}`);
+      }
+    }
+    const nextFrozen = currentFrozenCells.map(fc => {
+      if (fc.hitsRemaining <= 0) return fc;
+      const adjacents = getAdjacentPositions(fc.row, fc.col, GAME_CONFIG.rows, GAME_CONFIG.cols);
+      const wasHit = adjacents.some(a => clearedSet.has(`${a.row}:${a.col}`));
+      return wasHit ? { ...fc, hitsRemaining: fc.hitsRemaining - 1 } : fc;
+    });
+    return {
+      goalRemaining: nextFrozen.filter(fc => fc.hitsRemaining > 0).length,
+      frozenCells: nextFrozen,
+    };
+  }
+
+  return {
+    goalRemaining: Math.max(0, currentGoalRemaining - totalCleared),
+    frozenCells: currentFrozenCells,
+  };
 };
 
 interface IStageInit {
@@ -176,6 +226,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [won, setWon] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
+  const [bombActivating, setBombActivating] = useState<IPosition | null>(null);
   const [stageStars, setStageStars] = useState<1 | 2 | 3 | null>(null);
   const [bestScore, setBestScore] = useState(0);
   const [bestStars, setBestStars] = useState<0 | 1 | 2 | 3>(0);
@@ -278,6 +329,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setIsResolving(false);
     setCombo(0);
     setBombPosition(null);
+    setBombActivating(null);
     setStageStars(null);
   }, []);
 
@@ -307,6 +359,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       if (bombPosition && bombPosition.row === row && bombPosition.col === col) {
         setIsResolving(true);
         setMatchedCellKeys([`${row}:${col}`]);
+        setBombActivating({ row, col });
         setBombPosition(null);
         setSelectedCell(null);
 
@@ -314,7 +367,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
         resolveTimerRef.current = setTimeout(() => {
           setMatchedCellKeys([]);
-          setIsResolving(false);
+          setBombActivating(null);
           setScore((prev) => {
             const next = prev + BOMB_SCORE_BONUS;
             if (next > bestScore) {
@@ -328,6 +381,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           if (playStyle === 'bomb-storm' && bombRespawnsLeft > 0) {
             setBombRespawnsLeft(prev => prev - 1);
             setBombPosition(getRandomPlayablePosition(shapeMask));
+            setIsResolving(false);
             return;
           }
 
@@ -345,6 +399,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
             }
             setWon(true);
             setGameOver(true);
+            setIsResolving(false);
             return;
           }
 
@@ -394,13 +449,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       }
 
       const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
-      // Aggregate clearedByColor across all cascade steps
-      const clearedByColor: Record<string, number> = {};
-      for (const step of steps) {
-        for (const [color, count] of Object.entries(step.matchedByColor)) {
-          clearedByColor[color] = (clearedByColor[color] ?? 0) + count;
-        }
-      }
 
       const comboCount = steps.length;
       const finalBoard = steps[steps.length - 1]!.nextBoard;
@@ -416,14 +464,28 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         ? movesLeft
         : Math.max(0, movesLeft - 1);
 
-      // Compute goal progress by play style
-      let nextGoalRemaining: number;
-      if (playStyle === 'color-target' && targetColor) {
-        const colorCleared = clearedByColor[targetColor] ?? 0;
-        nextGoalRemaining = Math.max(0, goalRemaining - colorCleared);
-      } else {
-        nextGoalRemaining = Math.max(0, goalRemaining - totalCleared);
-      }
+      let runningGoalRemaining = goalRemaining;
+      let runningFrozenCells = frozenCells;
+
+      const applyStepProgress = (step: ICascadeStep, stepIndex: number): void => {
+        const result = computeGoalAfterSteps(
+          [step],
+          playStyle,
+          runningGoalRemaining,
+          targetColor,
+          runningFrozenCells,
+        );
+        runningGoalRemaining = result.goalRemaining;
+        runningFrozenCells = result.frozenCells;
+        setGoalRemaining(runningGoalRemaining);
+        if (playStyle === 'locked-tiles') {
+          setFrozenCells(runningFrozenCells);
+        }
+        const cascadeCount = stepIndex + 1;
+        if (cascadeCount >= 2) {
+          setCombo(cascadeCount);
+        }
+      };
 
       // Multiplier-rush: update combo multiplier (cap at 8x)
       const nextComboMultiplier = (playStyle === 'multiplier-rush')
@@ -480,7 +542,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
       const finalizeMove = (): void => {
         setBoard(finalBoard);
-        setCombo(comboCount);
         setScore((prev) => {
           const next = prev + effectivePoints;
           if (next > bestScore) {
@@ -493,35 +554,14 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         if (playStyle === 'multiplier-rush') setComboMultiplier(nextComboMultiplier);
         setMatchedCellKeys([]);
 
-        // Apply frozen cell thawing for locked-tiles
-        let effectiveGoalRemaining = nextGoalRemaining;
-        if (playStyle === 'locked-tiles' && frozenCells.length > 0) {
-          const clearedSet = new Set<string>();
-          for (const step of steps) {
-            for (const p of step.matchedPositions) {
-              clearedSet.add(`${p.row}:${p.col}`);
-            }
-          }
-          const nextFrozen = frozenCells.map(fc => {
-            if (fc.hitsRemaining <= 0) return fc;
-            const adjacents = getAdjacentPositions(fc.row, fc.col, GAME_CONFIG.rows, GAME_CONFIG.cols);
-            const wasHit = adjacents.some(a => clearedSet.has(`${a.row}:${a.col}`));
-            return wasHit ? { ...fc, hitsRemaining: fc.hitsRemaining - 1 } : fc;
-          });
-          setFrozenCells(nextFrozen);
-          effectiveGoalRemaining = nextFrozen.filter(fc => fc.hitsRemaining > 0).length;
-        }
-
-        setGoalRemaining(effectiveGoalRemaining);
-
         // Bomb spawn threshold (bomb-storm spawns earlier)
         const spawnRatio = playStyle === 'bomb-storm' ? BOMB_STORM_SPAWN_RATIO : 0.6;
         const spawnThreshold = Math.floor(getMovesForLevel(level) * spawnRatio);
-        if (playStyle !== 'timer-attack' && bombPosition === null && nextMoves === spawnThreshold && effectiveGoalRemaining > 0) {
+        if (playStyle !== 'timer-attack' && bombPosition === null && nextMoves === spawnThreshold && runningGoalRemaining > 0) {
           setBombPosition(getRandomPlayablePosition(shapeMask));
         }
 
-        if (effectiveGoalRemaining === 0) {
+        if (runningGoalRemaining === 0) {
           const totalMoves = getMovesForLevel(level);
           const starsRemaining = playStyle === 'timer-attack' ? (timerSecondsLeft ?? 0) : nextMoves;
           const starsTotal = playStyle === 'timer-attack' ? (currentShape.timerSeconds ?? TIMER_ATTACK_SECONDS) : totalMoves;
@@ -543,16 +583,16 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           return;
         }
 
-        if (effectiveGoalRemaining > 0 && (playStyle === 'timer-attack' || nextMoves > 0)) {
+        if (runningGoalRemaining > 0 && (playStyle === 'timer-attack' || nextMoves > 0)) {
           const snap: ISavedGame = {
             level,
             shapeIndex,
             score: score + effectivePoints,
             movesLeft: nextMoves,
-            goalRemaining: effectiveGoalRemaining,
+            goalRemaining: runningGoalRemaining,
             board: finalBoard,
             targetColor,
-            frozenCells: playStyle === 'locked-tiles' ? frozenCells : undefined,
+            frozenCells: playStyle === 'locked-tiles' ? runningFrozenCells : undefined,
             timerSecondsLeft: playStyle === 'timer-attack' ? timerSecondsLeft : undefined,
             comboMultiplier: playStyle === 'multiplier-rush' ? nextComboMultiplier : undefined,
             bombRespawnsLeft: playStyle === 'bomb-storm' ? bombRespawnsLeft : undefined,
@@ -570,6 +610,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         const step = steps[stepIndex]!;
         const displayBoard = stepIndex === 0 ? result.previewBoard : steps[stepIndex - 1]!.nextBoard;
 
+        applyStepProgress(step, stepIndex);
         setBoard(displayBoard);
         setMatchedCellKeys(step.matchedPositions.map(({ row: r, col: c }) => `${r}:${c}`));
 
@@ -642,6 +683,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setWon(false);
     setGameOver(false);
     setBombPosition(null);
+    setBombActivating(null);
     setStageStars(null);
     setPlayStyle(shape.playStyle);
     setTargetColor(saved.targetColor ?? null);
@@ -724,6 +766,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     bestScore,
     level,
     bombPosition,
+    bombActivating,
     stageStars,
     bestStars,
     hasSavedGame,
