@@ -4,7 +4,8 @@ export type PlayStyle =
   | 'locked-tiles'
   | 'multiplier-rush'
   | 'bomb-storm'
-  | 'timer-attack';
+  | 'timer-attack'
+  | 'shape-classic';
 
 export interface ICandyBreak {
   candyBreak: string;

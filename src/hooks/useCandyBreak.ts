@@ -72,8 +72,8 @@ const SAVE_GAME_KEY = 'savedGame';
 const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
 const DROP_PAUSE_MS = 140;
-// 6 entries matching GAME_SHAPES indices 0-5
-const SHAPE_GOALS = [40, 55, 65, 45, 55, 50];
+// entries matching GAME_SHAPES indices
+const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 38];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
 
