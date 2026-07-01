@@ -1,0 +1,65 @@
+---
+description: Candy Break architecture and conventions for stages, play styles, and game logic
+alwaysApply: true
+---
+
+# Candy Break
+
+React Native + Expo match-3 game. Portrait only. Bundle ID: `com.mike008.candybreak`.
+
+## Architecture
+
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| Types | `src/types/index.ts` | `PlayStyle`, `IGameShape`, board/cell interfaces |
+| Constants | `src/constants/game.ts` | Grid size, scoring, `GAME_SHAPES`, `COLOR_POOL` |
+| Engine | `src/utils/gameEngine.ts` | Pure logic: swaps, matches, cascades, specials, scoring |
+| State | `src/hooks/useCandyBreak.ts` | Stage progression, mode rules, persistence, animations timing |
+| UI | `App.tsx`, `src/components/` | Rendering, HUD, overlays, sounds |
+
+Keep **game rules in the hook/engine**, not in UI. `App.tsx` only reads hook state and dispatches `tapCell`.
+
+## Stage Model
+
+A run = **5 levels** × **N stages** (one per `GAME_SHAPES` entry). Stages advance in `shapeIndex` order; after the last shape, `level` increments and `shapeIndex` resets to 0.
+
+- `MAX_LEVEL`, `LEVEL_MOVES`, `LEVEL_GOAL_MULTIPLIERS` — difficulty scaling (`useCandyBreak.ts`)
+- `SHAPE_GOALS[shapeIndex]` — base clear goal per stage (must match `GAME_SHAPES.length`)
+- `initializeStage(shapeIndex, level)` — single entry point for board + mode-specific state
+
+## Adding a New Play Style / Stage
+
+Touch these files in order:
+
+1. **`src/types/index.ts`** — extend `PlayStyle`; add optional fields on `IGameShape`
+2. **`src/constants/game.ts`** — append to `GAME_SHAPES` with `id`, `label`, `mask`, `playStyle`, and mode config (`timerSeconds`, `bombRespawns`, etc.)
+3. **`src/hooks/useCandyBreak.ts`**
+   - Add matching `SHAPE_GOALS` entry (same index as `GAME_SHAPES`)
+   - Extend `initializeStage` for setup (target color, frozen cells, timer, etc.)
+   - Extend `tapCell` / `finalizeMove` for goal tracking, move consumption, win/loss, bomb spawn
+   - Extend `ISavedGame` + save/restore if the mode has persistent mid-stage state
+4. **`App.tsx`** — `bannerConfig` entry; update `fourthCard` HUD if the mode needs a custom stat
+5. **`src/components/InstructionPage.tsx`** — add ko/en instructions for the new mode
+
+Do **not** duplicate match/cascade logic in the hook — use `gameEngine.ts` exports.
+
+## Play Style Reference
+
+| Style | Goal | Moves | Notes |
+|-------|------|-------|-------|
+| `classic` | Clear N candies | Limited | Bomb at 60% moves left |
+| `color-target` | Clear N of `targetColor` | Limited | Random target on init |
+| `locked-tiles` | Thaw all frozen cells | Limited | 2 hits to thaw; goal = frozen count |
+| `multiplier-rush` | Score threshold | Limited | Combo doubles multiplier (max 8×) |
+| `bomb-storm` | Clear N candies | Limited | Bomb spawns at 30% moves; respawns |
+| `timer-attack` | Clear N candies | Unlimited | Countdown timer; stars from time left |
+
+## Conventions
+
+- Board uses `boolean[][]` masks; only playable cells participate in swaps/matches
+- Candy colors: `Red`, `Blue`, `Gold`, `Mint` — assets in `assets/images/`
+- Specials: 4-match → striped, 5+ → rainbow (engine handles spawn/clear)
+- Scoring constants: `SCORE_BASE_POINTS`, `SCORE_EXTRA_TILE_POINTS`, `SCORE_COMBO_POINTS`, `BOMB_SCORE_BONUS`
+- Persistence: `AsyncStorage` keys `bestScore`, `savedGame`, `stars_L{level}_S{shapeIndex}`
+- Run `npm run typecheck` after changes; keep diffs minimal and match existing patterns
+- OTA-safe changes only in JS/assets; native changes require new EAS build (`runtimeVersion` in `app.json`)
