@@ -53,10 +53,10 @@ Do **not** duplicate match/cascade logic in the hook — use `gameEngine.ts` exp
 | `multiplier-rush` | Score threshold | Limited | Combo doubles multiplier (max 8×) |
 | `bomb-storm` | Clear N candies | Limited | Bomb spawns at 30% moves; respawns |
 | `timer-attack` | Clear N candies | Unlimited | Countdown timer; stars from time left |
-| `shape-classic` | Clear N candies | Limited | Classic rules on a diamond-shaped board mask |
 
 ## Conventions
 
+- All stages use the full **12×8** grid (`FULL_MASK`); mode variety comes from rules, not board shape
 - Board uses `boolean[][]` masks; only playable cells participate in swaps/matches
 - Candy colors: `Red`, `Blue`, `Gold`, `Mint` — assets in `assets/images/`
 - Specials: 4-match → striped, 5+ → rainbow (engine handles spawn/clear)

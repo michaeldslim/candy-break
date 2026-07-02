@@ -519,7 +519,6 @@ export default function App() {
               'multiplier-rush': { icon: '✨', label: 'Multiplier Rush',  hint: 'Combos double your score!',                accent: '#7d6608' },
               'bomb-storm':      { icon: '💣', label: 'Bomb Storm',       hint: 'Tap the bomb to advance',                  accent: '#6e2c00' },
               'timer-attack':    { icon: '⏱️', label: 'Timer Attack',     hint: `Clear ${goal} before time runs out`,       accent: '#1a5c3a' },
-              'shape-classic':   { icon: '💎', label: 'Diamond Board',    hint: `Clear ${goal} on the diamond grid`,        accent: '#2c5282' },
             };
             const cfg = bannerConfig[playStyle];
             if (!cfg) return null;
@@ -551,15 +550,6 @@ export default function App() {
                   const isPlayable = !!shapeMask[rowIndex]?.[colIndex];
                   const frozenCell = frozenCells.find(fc => fc.row === rowIndex && fc.col === colIndex);
                   const isFrozen = !!(frozenCell && frozenCell.hitsRemaining > 0);
-
-                  if (!isPlayable) {
-                    return (
-                      <View
-                        key={`cell-${rowIndex}-${colIndex}`}
-                        style={{ width: cellSize, height: cellSize }}
-                      />
-                    );
-                  }
 
                   if (isBomb) {
                     return (

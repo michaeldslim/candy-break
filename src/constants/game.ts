@@ -21,28 +21,6 @@ export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () 
   Array.from({ length: GAME_BASE_COLS }, () => true)
 );
 
-const createEmptyMask = (): boolean[][] =>
-  Array.from({ length: GAME_BASE_ROWS }, () =>
-    Array.from({ length: GAME_BASE_COLS }, () => false),
-  );
-
-/** Manhattan-distance diamond centered on the grid */
-export const createDiamondMask = (radius = 4): boolean[][] => {
-  const mask = createEmptyMask();
-  const centerR = (GAME_BASE_ROWS - 1) / 2;
-  const centerC = (GAME_BASE_COLS - 1) / 2;
-  for (let r = 0; r < GAME_BASE_ROWS; r += 1) {
-    for (let c = 0; c < GAME_BASE_COLS; c += 1) {
-      if (Math.abs(r - centerR) + Math.abs(c - centerC) <= radius) {
-        mask[r]![c] = true;
-      }
-    }
-  }
-  return mask;
-};
-
-export const DIAMOND_MASK = createDiamondMask(4);
-
 export const FIREWORK_COLORS = [
   '#FF6B6B',
   '#FFD93D',
@@ -103,12 +81,6 @@ export const GAME_SHAPES: IGameShape[] = [
     mask: FULL_MASK,
     playStyle: 'timer-attack',
     timerSeconds: TIMER_ATTACK_SECONDS,
-  },
-  {
-    id: 'shape-classic',
-    label: 'Diamond Board',
-    mask: DIAMOND_MASK,
-    playStyle: 'shape-classic',
   },
 ];
 

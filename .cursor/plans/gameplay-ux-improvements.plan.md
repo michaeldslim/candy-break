@@ -2,199 +2,149 @@
 
 ## Overview
 
-Two fixes in [`src/hooks/useCandyBreak.ts`](src/hooks/useCandyBreak.ts) and [`App.tsx`](App.tsx):
+| # | Item | Status |
+|---|------|--------|
+| 1 | Fix lightning (bomb) icon flash before stage transition | **implemented** |
+| 2 | Update goal counter immediately when a move is accepted | **implemented** |
+| 3 | Random mode order per level (shuffle once) | pending |
+| ~~4~~ | ~~Diamond Board (`shape-classic`)~~ | **reverted** — board shape changes are out of scope |
 
-1. Fix lightning (bomb) icon flashing as candy before stage transition — **implemented**
-2. Update goal counter immediately when a move is accepted (not after full combo animation) — **implemented**
-
-~~3. Shuffle all play modes once per level in random order~~ — **discarded**
-
----
-
-## 1. Bomb / lightning icon flash (bug fix)
-
-### Root cause
-
-On bomb tap ([`useCandyBreak.ts` ~307–310](src/hooks/useCandyBreak.ts)):
-
-```typescript
-setBombPosition(null);  // lightning UI removed immediately
-setMatchedCellKeys([`${row}:${col}`]);  // match anim on same cell
-```
-
-`bombPosition` is cleared **before** the 220ms animation and stage transition. The cell still has candy in `board`, so [`App.tsx`](App.tsx) re-renders the **candy image** instead of ⚡ for ~220ms — the flash the user sees.
-
-```mermaid
-sequenceDiagram
-  participant User
-  participant Hook
-  participant UI
-
-  User->>Hook: tap bomb cell
-  Hook->>Hook: setBombPosition null
-  Hook->>UI: isBomb false, board still has candy
-  UI->>User: shows candy briefly
-  Note over Hook,UI: 220ms later
-  Hook->>Hook: applyStageInit next stage
-```
-
-### Fix
-
-Add `bombActivating: IPosition | null` state in the hook.
-
-| Step | Change |
-|------|--------|
-| On bomb tap | Set `bombActivating` to tapped cell; then clear `bombPosition` |
-| During animation | `App.tsx` treats cell as bomb if `bombPosition` **or** `bombActivating` matches |
-| Before `applyStageInit` | Clear `bombActivating` |
-| Optional polish | Short burst scale on ⚡ (150ms) before stage swap |
-
-**Files:** `useCandyBreak.ts` (state + export), `App.tsx` (combine bomb checks)
-
-**No board mutation needed** — keep candy data; only the visual layer changes.
+**Design direction (confirmed):** All stages keep the **12×8 full grid** (`FULL_MASK`). Mode variety comes from **rules and goals**, not from masking cells into different shapes.
 
 ---
 
-## 2. Immediate goal update
+## 1. Bomb / lightning icon flash (bug fix) — done
 
 ### Root cause
 
-`goalRemaining` is only set inside `finalizeMove()`, which runs **after** the full cascade animation chain (`playStep` → `MATCH_ANIMATION_MS` + `DROP_PAUSE_MS` per step). A 3-step combo can delay the HUD by ~1+ second.
+On bomb tap, `bombPosition` was cleared before the 220ms animation. The cell still had candy in `board`, so `App.tsx` briefly rendered the candy image instead of ⚡.
 
 ### Fix
 
-Precompute goal progress **before** `playStep(0)` and apply state immediately.
+`bombActivating: IPosition | null` — UI treats a cell as bomb if `bombPosition` **or** `bombActivating` matches. Cleared before `applyStageInit`.
 
-In `tapCell`, after `resolveAllSteps` and computing:
+**Files:** `useCandyBreak.ts`, `App.tsx`
 
-- `nextGoalRemaining` (classic / color-target / timer)
-- frozen thaw result for `locked-tiles` (same adjacency logic already in `finalizeMove`, moved to a shared helper)
+---
 
-Call:
+## 2. Immediate goal update — done
 
-```typescript
-setGoalRemaining(effectiveGoalRemaining);
-// locked-tiles: also setFrozenCells(nextFrozen) immediately
-```
+`goalRemaining` (and frozen cells for `locked-tiles`) update per cascade step via `computeGoalAfterSteps` / `applyStepProgress`, not only in `finalizeMove`.
 
-Then start `playStep(0)`.
-
-`finalizeMove` should **not** set goal again (remove duplicate `setGoalRemaining` / frozen update there to avoid double-apply).
-
-### Edge cases
-
-| Mode | Immediate update |
-|------|------------------|
-| `classic`, `shape-classic`, `timer-attack`, etc. | `goalRemaining - totalCleared` upfront |
-| `color-target` | subtract `clearedByColor[targetColor]` upfront |
-| `locked-tiles` | recompute frozen list + remaining count upfront |
-| `multiplier-rush` | same clear-count goal as today |
-| Bomb skip | N/A — bomb advances stage without goal tick |
-
-### HUD
-
-`goalProgress = goal - goalRemaining` in [`App.tsx`](App.tsx) will react automatically — no UI change required unless you want a brief pulse animation on the Goal card (optional, out of scope).
-
-**Files:** `useCandyBreak.ts` only (extract `applyGoalProgress(steps, ...)` helper)
+**Files:** `useCandyBreak.ts`
 
 ---
 
 ## 3. Random mode order per level (shuffle once)
 
-### Current behavior
-
-Stages always run `shapeIndex 0 → 1 → 2 → … → N-1` within a level, then level increments and index resets to 0.
-
-### Target behavior (user confirmed)
+### Target behavior
 
 At the **start of each level**, shuffle all `GAME_SHAPES` indices once. Play each mode exactly once in that random order. Reshuffle when entering the next level.
 
-Example Level 2 order: `[4, 0, 6, 2, 5, 1, 3]` → seven stages, then Level 3 gets a new shuffle.
+### Implementation sketch
 
-```mermaid
-flowchart LR
-  LevelStart[Level N starts] --> Shuffle[shuffle 0..6]
-  Shuffle --> Stage1[stageOrder 0]
-  Stage1 --> Stage2[stageOrder 1]
-  Stage2 --> StageDots[...]
-  StageDots --> LevelEnd[all stages done]
-  LevelEnd --> NextLevel[Level N+1 reshuffle]
-```
+- New state: `stageOrder: number[]`, `stageSlot: number`
+- Derived: `shapeIndex = stageOrder[stageSlot]`
+- Persist in `ISavedGame`; migrate old saves best-effort
+- Stars key unchanged: `stars_L${level}_S${shapeIndex}`
 
-### Implementation
+**Files:** `useCandyBreak.ts`, optionally `.cursor/rules/candy-break.mdc`
 
-**New helper** in `useCandyBreak.ts` (or `src/utils/shuffle.ts`):
+---
 
-```typescript
-const createShuffledStageOrder = (): number[] => {
-  const order = GAME_SHAPES.map((_, i) => i);
-  // Fisher-Yates shuffle
-  return order;
-};
-```
+## 4. New game modes (12×8 only)
 
-**New state:**
+### Current modes (6)
 
-| Field | Purpose |
-|-------|---------|
-| `stageOrder: number[]` | Shuffled indices for current level |
-| `stageSlot: number` | Position in `stageOrder` (0 .. length-1) |
+| Style | Goal | Moves | What varies |
+|-------|------|-------|-------------|
+| `classic` | Clear N candies | Limited | Bomb at 60% moves left |
+| `color-target` | Clear N of one color | Limited | Random target color |
+| `locked-tiles` | Thaw all frozen cells | Limited | 2-hit ice overlay |
+| `multiplier-rush` | Score threshold | Limited | Combo doubles multiplier (max 8×) |
+| `bomb-storm` | Clear N candies | Limited | Early bomb spawn + respawn |
+| `timer-attack` | Clear N candies | Unlimited | 90s countdown |
 
-**Derived:** `shapeIndex = stageOrder[stageSlot]`
+All use `mask: FULL_MASK` — same 12×8 board.
 
-**Replace** all `shapeIndex + 1` / `isLastShape = shapeIndex >= GAME_SHAPES.length - 1` with:
+### Candidate modes (recommended order)
 
-```typescript
-const isLastStageInLevel = stageSlot >= stageOrder.length - 1;
-const nextShapeIndex = stageOrder[stageSlot + 1];
-```
+#### Tier A — hook-only, reuses existing engine
 
-**When to reshuffle:**
+| ID | Label | Goal | Rules | Why |
+|----|-------|------|-------|-----|
+| `order-collect` | Order Collect | Clear colors in sequence | Goal queue: e.g. Red 15 → Blue 15 → Gold 15; only active color counts | Distinct from `color-target`; teaches color planning |
+| `combo-goal` | Combo Goal | Reach N cascades of 2+ | Only combo steps (step index ≥ 1) count toward goal | Rewards setup moves; different feel from `multiplier-rush` |
+| `move-refund` | Move Saver | Clear N candies | Each cascade of 2+ refunds 1 move (cap e.g. +3/stage) | Tension between speed and efficiency |
+| `no-specials` | Pure Match | Clear N candies | Disable striped/rainbow spawn in engine flag | Harder, more tactical; good contrast to `classic` |
 
-- `restartFromLevelOne()` → new shuffle, `stageSlot = 0`
-- Level increment (after last stage in level) → new shuffle, `stageSlot = 0`
-- `restart()` current level → reshuffle or keep same order? **Recommend reshuffle** for variety
+**Touch:** `types`, `game.ts`, `useCandyBreak.ts` (`initializeStage`, goal tracking), `App.tsx` banner, `InstructionPage.tsx`. `no-specials` also needs a small `gameEngine.ts` flag.
 
-**Save game** ([`ISavedGame`](src/hooks/useCandyBreak.ts)):
+#### Tier B — light engine extension, still full 12×8
 
-```typescript
-stageOrder: number[];
-stageSlot: number;
-```
+| ID | Label | Goal | Rules | Engine change |
+|----|-------|------|-------|---------------|
+| `jelly-tiles` | Jelly Tiles | Clear all jelly | ~15% of cells marked jelly; each needs 1 match on that cell to clear | Jelly layer on playable cells (similar data model to `frozenCells`) |
+| `stone-blocks` | Stone Blocks | Clear N candies | ~10% cells are immovable stones; candies match around them | Blocker layer; swaps skip stone cells |
+| `special-hunt` | Special Hunt | Create N specials | Goal = count of striped/rainbow created (not candies cleared) | Track `specialCreated` in cascade steps |
 
-Persist and restore on resume. Migrate old saves without these fields: generate shuffle on resume from `shapeIndex` position (best-effort) or restart level order.
+#### Tier C — larger scope (defer unless strongly wanted)
 
-**Stars / best stars:** Keep key `stars_L${level}_S${shapeIndex}` — still keyed by actual shape index, not slot. No change needed.
+| ID | Label | Notes |
+|----|-------|-------|
+| `color-flood` | Color Flood | 3 colors only (`maxKinds: 3`); higher clear goal |
+| `ice-spread` | Ice Spread | Ice spreads every N moves unless adjacent cleared — defensive pressure |
+| `mystery` | Mystery | Hidden color until first adjacent match |
 
-**Files:** `useCandyBreak.ts` (primary), optionally update [`.cursor/rules/candy-break.mdc`](.cursor/rules/candy-break.mdc) stage model description
+### Not pursuing
+
+- **Board shape masks** (diamond, cross, etc.) — user preference is fixed 12×8
+- **Gravity direction change** — large engine/UI change for marginal gain
+- **Practice / mode-select screen** — out of scope for this plan
+
+### Suggested next mode to implement
+
+**`order-collect`** — clearest differentiation, no engine changes, strong HUD story (show current target color + queue).
 
 ---
 
 ## Implementation order
 
-1. **Bomb flash fix** — smallest, isolated, visible win
-2. **Immediate goal** — hook-only refactor
-3. **Random shuffle** — touches progression, save/load, all advance paths (normal win, bomb skip, `advanceAfterStars`)
+1. ~~Bomb flash fix~~ ✓
+2. ~~Immediate goal~~ ✓
+3. **Random shuffle** — progression + save/load
+4. **First new 12×8 mode** — pick from Tier A (recommend `order-collect`)
 
 ---
 
 ## Testing checklist
 
-- [ ] Tap ⚡ — lightning stays visible until next stage; no candy flash
-- [ ] Single match — goal decrements on swap, not after cascade ends
-- [ ] 3+ combo — goal shows full cleared count immediately
-- [ ] `locked-tiles` — frozen count updates immediately
-- [ ] `color-target` — only target color reduces goal immediately
+### Shipped (1–2)
+
+- [x] Tap ⚡ — lightning stays visible until next stage; no candy flash
+- [x] Single match — goal decrements on swap, not after cascade ends
+- [x] 3+ combo — goal shows full cleared count immediately
+- [x] `locked-tiles` — frozen count updates immediately
+- [x] `color-target` — only target color reduces goal immediately
+
+### Shuffle (3)
+
 - [ ] New game Level 1 — random stage order (run twice, orders differ)
 - [ ] Complete all stages in level — advances to next level with new shuffle
 - [ ] Resume saved game — same `stageOrder` / `stageSlot` restored
-- [ ] Bomb skip to next stage — respects shuffled order, not sequential index
+- [ ] Bomb skip to next stage — respects shuffled order
+
+### Revert verification
+
+- [ ] No `shape-classic` / diamond references in code
+- [ ] All 6 stages render full 12×8 grid
 - [ ] `npm run typecheck` passes
 
 ---
 
 ## Out of scope
 
+- Board shape / mask variety
 - Mode-select / practice screen
 - Goal progress bar animation
 - Changing number of stages per level (still = `GAME_SHAPES.length`)
