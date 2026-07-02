@@ -16,6 +16,8 @@ export const TIMER_ATTACK_SECONDS = 90;
 export const LOCKED_TILES_FREEZE_RATIO = 0.2;  // 20% of cells
 export const BOMB_STORM_SPAWN_RATIO = 0.3;     // spawn at 30% moves remaining
 export const BOMB_STORM_RESPAWNS = 1;          // 1 respawn = 2 bombs total
+export const ORDER_COLLECT_BASE_PER_COLOR = 12;
+export const ORDER_COLLECT_COLORS = ['Red', 'Blue', 'Gold'];
 
 export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () =>
   Array.from({ length: GAME_BASE_COLS }, () => true)
@@ -81,6 +83,12 @@ export const GAME_SHAPES: IGameShape[] = [
     mask: FULL_MASK,
     playStyle: 'timer-attack',
     timerSeconds: TIMER_ATTACK_SECONDS,
+  },
+  {
+    id: 'order-collect',
+    label: 'Order Collect',
+    mask: FULL_MASK,
+    playStyle: 'order-collect',
   },
 ];
 

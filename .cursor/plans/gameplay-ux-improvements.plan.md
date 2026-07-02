@@ -113,7 +113,7 @@ All use `mask: FULL_MASK` — same 12×8 board.
 1. ~~Bomb flash fix~~ ✓
 2. ~~Immediate goal~~ ✓
 3. **Random shuffle** — progression + save/load
-4. **First new 12×8 mode** — pick from Tier A (recommend `order-collect`)
+4. **First new 12×8 mode** — ~~pick from Tier A (recommend `order-collect`)~~ **`order-collect` implemented**
 
 ---
 

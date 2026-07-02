@@ -8,9 +8,11 @@ import {
   GAME_CONFIG,
   GAME_SHAPES,
   LOCKED_TILES_FREEZE_RATIO,
+  ORDER_COLLECT_BASE_PER_COLOR,
+  ORDER_COLLECT_COLORS,
   TIMER_ATTACK_SECONDS,
 } from '../constants/game';
-import { IBoard, IFrozenCell, IPosition, PlayStyle } from '../types';
+import { IBoard, IFrozenCell, IOrderStep, IPosition, PlayStyle } from '../types';
 import {
   areAdjacent,
   createInitialBoard,
@@ -31,6 +33,8 @@ interface ISavedGame {
   goalRemaining: number;
   board: IBoard;
   targetColor?: string | null;
+  orderSteps?: IOrderStep[];
+  orderStepIndex?: number;
   frozenCells?: IFrozenCell[];
   timerSecondsLeft?: number | null;
   comboMultiplier?: number;
@@ -59,6 +63,8 @@ interface IUseCandyBreakResult {
   hasSavedGame: boolean;
   playStyle: PlayStyle;
   targetColor: string | null;
+  orderSteps: IOrderStep[];
+  orderStepIndex: number;
   frozenCells: IFrozenCell[];
   comboMultiplier: number;
   timerSecondsLeft: number | null;
@@ -75,7 +81,7 @@ const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
 const DROP_PAUSE_MS = 140;
 // entries matching GAME_SHAPES indices
-const SHAPE_GOALS = [40, 55, 65, 45, 55, 50];
+const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
 
@@ -98,10 +104,29 @@ const calcStars = (
 const getMovesForLevel = (level: number): number =>
   LEVEL_MOVES[level - 1] ?? LEVEL_MOVES[LEVEL_MOVES.length - 1] ?? GAME_CONFIG.easyMoves;
 
+const createOrderSteps = (level: number): IOrderStep[] => {
+  const multiplier =
+    LEVEL_GOAL_MULTIPLIERS[level - 1] ??
+    LEVEL_GOAL_MULTIPLIERS[LEVEL_GOAL_MULTIPLIERS.length - 1] ??
+    1;
+  const count = Math.round(ORDER_COLLECT_BASE_PER_COLOR * multiplier);
+  const colors = [...ORDER_COLLECT_COLORS];
+  for (let i = colors.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = colors[i]!;
+    colors[i] = colors[j]!;
+    colors[j] = tmp;
+  }
+  return colors.map((color) => ({ color, count }));
+};
+
 const getGoalForStage = (shapeIndex: number, level: number): number => {
   const shape = GAME_SHAPES[shapeIndex];
   if (shape?.playStyle === 'locked-tiles') {
     return Math.floor(GAME_CONFIG.rows * GAME_CONFIG.cols * LOCKED_TILES_FREEZE_RATIO);
+  }
+  if (shape?.playStyle === 'order-collect') {
+    return createOrderSteps(level)[0]?.count ?? ORDER_COLLECT_BASE_PER_COLOR;
   }
   const baseGoal = SHAPE_GOALS[shapeIndex] ?? GAME_CONFIG.easyGoal;
   const multiplier =
@@ -111,13 +136,21 @@ const getGoalForStage = (shapeIndex: number, level: number): number => {
   return Math.round(baseGoal * multiplier);
 };
 
+interface IGoalProgressResult {
+  goalRemaining: number;
+  frozenCells: IFrozenCell[];
+  orderStepIndex?: number;
+  targetColor?: string | null;
+}
+
 const computeGoalAfterSteps = (
   steps: ICascadeStep[],
   style: PlayStyle,
   currentGoalRemaining: number,
   currentTargetColor: string | null,
   currentFrozenCells: IFrozenCell[],
-): { goalRemaining: number; frozenCells: IFrozenCell[] } => {
+  orderContext?: { orderSteps: IOrderStep[]; orderStepIndex: number },
+): IGoalProgressResult => {
   const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
   const clearedByColor: Record<string, number> = {};
   for (const step of steps) {
@@ -131,6 +164,27 @@ const computeGoalAfterSteps = (
     return {
       goalRemaining: Math.max(0, currentGoalRemaining - colorCleared),
       frozenCells: currentFrozenCells,
+    };
+  }
+
+  if (style === 'order-collect' && currentTargetColor && orderContext) {
+    const { orderSteps, orderStepIndex } = orderContext;
+    const colorCleared = clearedByColor[currentTargetColor] ?? 0;
+    let remaining = Math.max(0, currentGoalRemaining - colorCleared);
+    let stepIndex = orderStepIndex;
+    let activeColor = currentTargetColor;
+
+    while (remaining === 0 && stepIndex < orderSteps.length - 1) {
+      stepIndex += 1;
+      activeColor = orderSteps[stepIndex]!.color;
+      remaining = orderSteps[stepIndex]!.count;
+    }
+
+    return {
+      goalRemaining: remaining,
+      frozenCells: currentFrozenCells,
+      orderStepIndex: stepIndex,
+      targetColor: activeColor,
     };
   }
 
@@ -163,6 +217,8 @@ interface IStageInit {
   board: IBoard;
   playStyle: PlayStyle;
   targetColor: string | null;
+  orderSteps: IOrderStep[];
+  orderStepIndex: number;
   frozenCells: IFrozenCell[];
   timerSecondsLeft: number | null;
   bombRespawnsLeft: number;
@@ -178,6 +234,8 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
   const goal = getGoalForStage(shapeIndex, level);
 
   let targetColor: string | null = null;
+  let orderSteps: IOrderStep[] = [];
+  let orderStepIndex = 0;
   let frozenCells: IFrozenCell[] = [];
   let timerSecondsLeft: number | null = null;
   let bombRespawnsLeft = 0;
@@ -185,6 +243,22 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
   if (playStyle === 'color-target') {
     const idx = Math.floor(Math.random() * COLOR_POOL.length);
     targetColor = COLOR_POOL[idx]?.candyBreak ?? 'Red';
+  } else if (playStyle === 'order-collect') {
+    orderSteps = createOrderSteps(level);
+    orderStepIndex = 0;
+    targetColor = orderSteps[0]?.color ?? 'Red';
+    return {
+      board,
+      playStyle,
+      targetColor,
+      orderSteps,
+      orderStepIndex,
+      frozenCells,
+      timerSecondsLeft,
+      bombRespawnsLeft,
+      moves,
+      goal: orderSteps[0]?.count ?? goal,
+    };
   } else if (playStyle === 'locked-tiles') {
     const rows = GAME_CONFIG.rows;
     const cols = GAME_CONFIG.cols;
@@ -209,7 +283,18 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
     bombRespawnsLeft = shape.bombRespawns ?? BOMB_STORM_RESPAWNS;
   }
 
-  return { board, playStyle, targetColor, frozenCells, timerSecondsLeft, bombRespawnsLeft, moves, goal };
+  return {
+    board,
+    playStyle,
+    targetColor,
+    orderSteps,
+    orderStepIndex,
+    frozenCells,
+    timerSecondsLeft,
+    bombRespawnsLeft,
+    moves,
+    goal,
+  };
 };
 
 export const useCandyBreak = (): IUseCandyBreakResult => {
@@ -236,6 +321,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   // Play-style specific state
   const [playStyle, setPlayStyle] = useState<PlayStyle>('classic');
   const [targetColor, setTargetColor] = useState<string | null>(null);
+  const [orderSteps, setOrderSteps] = useState<IOrderStep[]>([]);
+  const [orderStepIndex, setOrderStepIndex] = useState(0);
   const [frozenCells, setFrozenCells] = useState<IFrozenCell[]>([]);
   const [comboMultiplier, setComboMultiplier] = useState(1);
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(null);
@@ -317,6 +404,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const applyStageInit = useCallback((init: IStageInit): void => {
     setPlayStyle(init.playStyle);
     setTargetColor(init.targetColor);
+    setOrderSteps(init.orderSteps);
+    setOrderStepIndex(init.orderStepIndex);
     setFrozenCells(init.frozenCells);
     setTimerSecondsLeft(init.timerSecondsLeft);
     setBombRespawnsLeft(init.bombRespawnsLeft);
@@ -466,20 +555,35 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
       let runningGoalRemaining = goalRemaining;
       let runningFrozenCells = frozenCells;
+      let runningOrderStepIndex = orderStepIndex;
+      let runningTargetColor = targetColor;
 
       const applyStepProgress = (step: ICascadeStep, stepIndex: number): void => {
         const result = computeGoalAfterSteps(
           [step],
           playStyle,
           runningGoalRemaining,
-          targetColor,
+          runningTargetColor,
           runningFrozenCells,
+          playStyle === 'order-collect'
+            ? { orderSteps, orderStepIndex: runningOrderStepIndex }
+            : undefined,
         );
         runningGoalRemaining = result.goalRemaining;
         runningFrozenCells = result.frozenCells;
+        if (result.orderStepIndex !== undefined) {
+          runningOrderStepIndex = result.orderStepIndex;
+        }
+        if (result.targetColor !== undefined) {
+          runningTargetColor = result.targetColor;
+        }
         setGoalRemaining(runningGoalRemaining);
         if (playStyle === 'locked-tiles') {
           setFrozenCells(runningFrozenCells);
+        }
+        if (playStyle === 'order-collect') {
+          setOrderStepIndex(runningOrderStepIndex);
+          setTargetColor(runningTargetColor);
         }
         const cascadeCount = stepIndex + 1;
         if (cascadeCount >= 2) {
@@ -561,7 +665,11 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           setBombPosition(getRandomPlayablePosition(shapeMask));
         }
 
-        if (runningGoalRemaining === 0) {
+        const isStageGoalMet = playStyle === 'order-collect'
+          ? runningGoalRemaining === 0 && runningOrderStepIndex >= orderSteps.length - 1
+          : runningGoalRemaining === 0;
+
+        if (isStageGoalMet) {
           const totalMoves = getMovesForLevel(level);
           const starsRemaining = playStyle === 'timer-attack' ? (timerSecondsLeft ?? 0) : nextMoves;
           const starsTotal = playStyle === 'timer-attack' ? (currentShape.timerSeconds ?? TIMER_ATTACK_SECONDS) : totalMoves;
@@ -591,7 +699,9 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
             movesLeft: nextMoves,
             goalRemaining: runningGoalRemaining,
             board: finalBoard,
-            targetColor,
+            targetColor: playStyle === 'order-collect' ? runningTargetColor : targetColor,
+            orderSteps: playStyle === 'order-collect' ? orderSteps : undefined,
+            orderStepIndex: playStyle === 'order-collect' ? runningOrderStepIndex : undefined,
             frozenCells: playStyle === 'locked-tiles' ? runningFrozenCells : undefined,
             timerSecondsLeft: playStyle === 'timer-attack' ? timerSecondsLeft : undefined,
             comboMultiplier: playStyle === 'multiplier-rush' ? nextComboMultiplier : undefined,
@@ -646,6 +756,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       isResolving,
       level,
       movesLeft,
+      orderStepIndex,
+      orderSteps,
       playStyle,
       score,
       selectedCell,
@@ -687,6 +799,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setStageStars(null);
     setPlayStyle(shape.playStyle);
     setTargetColor(saved.targetColor ?? null);
+    setOrderSteps(saved.orderSteps ?? []);
+    setOrderStepIndex(saved.orderStepIndex ?? 0);
     setFrozenCells(saved.frozenCells ?? []);
     setComboMultiplier(saved.comboMultiplier ?? 1);
     setBombRespawnsLeft(saved.bombRespawnsLeft ?? 0);
@@ -749,7 +863,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     applyStageInit(initializeStage(nextIndex, level));
   }, [applyStageInit, level, shapeIndex]);
 
-  const goal = useMemo(() => getGoalForStage(shapeIndex, level), [level, shapeIndex]);
+  const goal = useMemo(() => {
+    if (playStyle === 'order-collect' && orderSteps.length > 0) {
+      return orderSteps[orderStepIndex]?.count ?? getGoalForStage(shapeIndex, level);
+    }
+    return getGoalForStage(shapeIndex, level);
+  }, [level, orderStepIndex, orderSteps, playStyle, shapeIndex]);
 
   return {
     board,
@@ -773,6 +892,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     combo,
     playStyle,
     targetColor,
+    orderSteps,
+    orderStepIndex,
     frozenCells,
     comboMultiplier,
     timerSecondsLeft,

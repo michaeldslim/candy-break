@@ -4,7 +4,13 @@ export type PlayStyle =
   | 'locked-tiles'
   | 'multiplier-rush'
   | 'bomb-storm'
-  | 'timer-attack';
+  | 'timer-attack'
+  | 'order-collect';
+
+export interface IOrderStep {
+  color: string;
+  count: number;
+}
 
 export interface ICandyBreak {
   candyBreak: string;

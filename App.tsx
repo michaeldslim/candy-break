@@ -225,6 +225,8 @@ export default function App() {
     resumeSavedGame,
     playStyle,
     targetColor,
+    orderSteps,
+    orderStepIndex,
     frozenCells,
     comboMultiplier,
     timerSecondsLeft,
@@ -519,6 +521,7 @@ export default function App() {
               'multiplier-rush': { icon: '✨', label: 'Multiplier Rush',  hint: 'Combos double your score!',                accent: '#7d6608' },
               'bomb-storm':      { icon: '💣', label: 'Bomb Storm',       hint: 'Tap the bomb to advance',                  accent: '#6e2c00' },
               'timer-attack':    { icon: '⏱️', label: 'Timer Attack',     hint: `Clear ${goal} before time runs out`,       accent: '#1a5c3a' },
+              'order-collect':   { icon: '📋', label: 'Order Collect',    hint: `Clear ${targetColor ?? '?'} candies in order`, accent: '#5b2c6f' },
             };
             const cfg = bannerConfig[playStyle];
             if (!cfg) return null;
@@ -531,6 +534,17 @@ export default function App() {
                 </Text>
                 {playStyle === 'color-target' && targetColor ? (
                   <Image source={CANDY_IMAGES[targetColor]} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                ) : null}
+                {playStyle === 'order-collect' && targetColor ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Image source={CANDY_IMAGES[targetColor]} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                    {orderSteps.slice(orderStepIndex + 1).map((step) => (
+                      <View key={step.color} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.stageBannerHint}>→</Text>
+                        <Image source={CANDY_IMAGES[step.color]} style={{ width: 20, height: 20, opacity: 0.7 }} resizeMode="contain" />
+                      </View>
+                    ))}
+                  </View>
                 ) : null}
               </View>
             );
