@@ -84,7 +84,7 @@ const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
 const DROP_PAUSE_MS = 140;
 // entries matching GAME_SHAPES indices
-const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12, 48];
+const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12, 48, 42];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
 
@@ -538,6 +538,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         return;
       }
 
+      const disableSpecials = playStyle === 'pure-match';
+
       const result = trySwapAndResolve(
         board,
         shapeMask,
@@ -545,6 +547,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         tapped,
         GAME_CONFIG.minMatch,
         GAME_CONFIG.easyColorKinds,
+        disableSpecials,
       );
 
       if (!result.moved) {
@@ -552,7 +555,13 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         return;
       }
 
-      const steps = resolveAllSteps(result.previewBoard, shapeMask, GAME_CONFIG.minMatch, GAME_CONFIG.easyColorKinds);
+      const steps = resolveAllSteps(
+        result.previewBoard,
+        shapeMask,
+        GAME_CONFIG.minMatch,
+        GAME_CONFIG.easyColorKinds,
+        disableSpecials,
+      );
       if (steps.length === 0) {
         setSelectedCell(tapped);
         return;

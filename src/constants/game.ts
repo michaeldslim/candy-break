@@ -103,6 +103,12 @@ export const GAME_SHAPES: IGameShape[] = [
     mask: FULL_MASK,
     playStyle: 'move-saver',
   },
+  {
+    id: 'pure-match',
+    label: 'Pure Match',
+    mask: FULL_MASK,
+    playStyle: 'pure-match',
+  },
 ];
 
 export const COLOR_POOL: ICandyBreak[] = [

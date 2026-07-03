@@ -530,6 +530,7 @@ export default function App() {
               'order-collect':   { icon: '📋', label: 'Order Collect',    hint: `Clear ${targetColor ?? '?'} candies in order`, accent: '#5b2c6f' },
               'combo-goal':      { icon: '🔗', label: 'Combo Goal',       hint: 'Only cascade matches count toward Goal',     accent: '#1a4a6e' },
               'move-saver':      { icon: '💾', label: 'Move Saver',       hint: `2+ cascades refund 1 move (max ${MOVE_SAVER_REFUND_CAP}/stage)`, accent: '#2d6a4f' },
+              'pure-match':      { icon: '🧩', label: 'Pure Match',       hint: 'No striped or rainbow candies',            accent: '#4a3728' },
             };
             const cfg = bannerConfig[playStyle];
             if (!cfg) return null;

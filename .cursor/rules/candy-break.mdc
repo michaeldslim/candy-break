@@ -56,6 +56,7 @@ Do **not** duplicate match/cascade logic in the hook — use `gameEngine.ts` exp
 | `order-collect` | Clear N per color in sequence | Limited | Shuffled Red/Blue/Gold queue; only active color counts |
 | `combo-goal` | Reach N cascade steps | Limited | Only step 2+ of a chain counts; setup moves don't |
 | `move-saver` | Clear N candies | Limited | 2+ cascade refunds 1 move; max 3 refunds per stage |
+| `pure-match` | Clear N candies | Limited | No striped/rainbow spawn or activation |
 
 ## Conventions
 

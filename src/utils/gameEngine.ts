@@ -95,7 +95,12 @@ interface IRunResult {
   spawnSpecial?: { pos: IPosition; tile: ICandyBreak };
 }
 
-export const detectRuns = (board: IBoard, mask: boolean[][], minMatch: number): IRunResult[] => {
+export const detectRuns = (
+  board: IBoard,
+  mask: boolean[][],
+  minMatch: number,
+  disableSpecials = false,
+): IRunResult[] => {
   const rows = board.length;
   const cols = board[0]?.length ?? 0;
   const results: IRunResult[] = [];
@@ -119,10 +124,12 @@ export const detectRuns = (board: IBoard, mask: boolean[][], minMatch: number): 
           for (let c = runStart; c < col; c += 1) positions.push({ row, col: c });
           const centerCol = Math.floor((runStart + col - 1) / 2);
           let spawnSpecial: IRunResult['spawnSpecial'];
-          if (runLen === 4) {
-            spawnSpecial = { pos: { row, col: centerCol }, tile: { candyBreak: runColor, special: 'striped-v' } };
-          } else if (runLen >= 5) {
-            spawnSpecial = { pos: { row, col: centerCol }, tile: { candyBreak: runColor, special: 'rainbow' } };
+          if (!disableSpecials) {
+            if (runLen === 4) {
+              spawnSpecial = { pos: { row, col: centerCol }, tile: { candyBreak: runColor, special: 'striped-v' } };
+            } else if (runLen >= 5) {
+              spawnSpecial = { pos: { row, col: centerCol }, tile: { candyBreak: runColor, special: 'rainbow' } };
+            }
           }
           positions.forEach(p => counted.add(keyOf(p.row, p.col)));
           results.push({ positions, spawnSpecial });
@@ -150,10 +157,12 @@ export const detectRuns = (board: IBoard, mask: boolean[][], minMatch: number): 
           for (let r = runStart; r < row; r += 1) positions.push({ row: r, col });
           const centerRow = Math.floor((runStart + row - 1) / 2);
           let spawnSpecial: IRunResult['spawnSpecial'];
-          if (runLen === 4) {
-            spawnSpecial = { pos: { row: centerRow, col }, tile: { candyBreak: runColor, special: 'striped-h' } };
-          } else if (runLen >= 5) {
-            spawnSpecial = { pos: { row: centerRow, col }, tile: { candyBreak: runColor, special: 'rainbow' } };
+          if (!disableSpecials) {
+            if (runLen === 4) {
+              spawnSpecial = { pos: { row: centerRow, col }, tile: { candyBreak: runColor, special: 'striped-h' } };
+            } else if (runLen >= 5) {
+              spawnSpecial = { pos: { row: centerRow, col }, tile: { candyBreak: runColor, special: 'rainbow' } };
+            }
           }
           // don't double-count positions already part of a horizontal run that spawns a special
           positions.forEach(p => counted.add(keyOf(p.row, p.col)));
@@ -216,8 +225,13 @@ const specialClearPositions = (
 };
 
 // Apply normal run clears and place any spawned special tiles
-const clearMatchedCells = (board: IBoard, mask: boolean[][], minMatch: number): IBoard => {
-  const runs = detectRuns(board, mask, minMatch);
+const clearMatchedCells = (
+  board: IBoard,
+  mask: boolean[][],
+  minMatch: number,
+  disableSpecials = false,
+): IBoard => {
+  const runs = detectRuns(board, mask, minMatch, disableSpecials);
   const nextBoard = cloneBoard(board);
   const cleared = new Set<string>();
 
@@ -229,24 +243,27 @@ const clearMatchedCells = (board: IBoard, mask: boolean[][], minMatch: number): 
   }
 
   // Activate specials caught in normal runs
-  for (let r = 0; r < board.length; r += 1) {
-    for (let c = 0; c < (board[0]?.length ?? 0); c += 1) {
-      if (!cleared.has(keyOf(r, c))) continue;
-      const original = board[r]?.[c];
-      if (!original?.special || original.special === 'rainbow') continue;
-      // striped tile got cleared — fire it
-      const extra = specialClearPositions(board, mask, r, c, original.special);
-      for (const p of extra) {
-        if (nextBoard[p.row]) nextBoard[p.row][p.col] = null;
+  if (!disableSpecials) {
+    for (let r = 0; r < board.length; r += 1) {
+      for (let c = 0; c < (board[0]?.length ?? 0); c += 1) {
+        if (!cleared.has(keyOf(r, c))) continue;
+        const original = board[r]?.[c];
+        if (!original?.special || original.special === 'rainbow') continue;
+        const extra = specialClearPositions(board, mask, r, c, original.special);
+        for (const p of extra) {
+          if (nextBoard[p.row]) nextBoard[p.row][p.col] = null;
+        }
       }
     }
   }
 
   // Place spawned specials (only if that cell wasn't also cleared by another run)
-  for (const run of runs) {
-    if (!run.spawnSpecial) continue;
-    const { pos, tile } = run.spawnSpecial;
-    if (nextBoard[pos.row]) nextBoard[pos.row][pos.col] = tile;
+  if (!disableSpecials) {
+    for (const run of runs) {
+      if (!run.spawnSpecial) continue;
+      const { pos, tile } = run.spawnSpecial;
+      if (nextBoard[pos.row]) nextBoard[pos.row][pos.col] = tile;
+    }
   }
 
   return nextBoard;
@@ -306,6 +323,7 @@ export const resolveBoard = (
   mask: boolean[][],
   minMatch: number,
   maxKinds: number,
+  disableSpecials = false,
 ): IResolveResult => {
   let comboCount = 0;
   let totalCleared = 0;
@@ -326,7 +344,7 @@ export const resolveBoard = (
         clearedByColor[cell.candyBreak] = (clearedByColor[cell.candyBreak] ?? 0) + 1;
       }
     }
-    const cleared = clearMatchedCells(currentBoard, mask, minMatch);
+    const cleared = clearMatchedCells(currentBoard, mask, minMatch, disableSpecials);
     currentBoard = dropAndRefill(cleared, mask, maxKinds);
   }
 
@@ -379,6 +397,7 @@ export const trySwapAndResolve = (
   to: IPosition,
   minMatch: number,
   maxKinds: number,
+  disableSpecials = false,
 ): {
   moved: boolean;
   board: IBoard;
@@ -398,8 +417,9 @@ export const trySwapAndResolve = (
 
   const swapped = swapCells(board, from, to);
 
-  // Check if either swapped cell is a special — activate before normal match check
-  const { board: afterSpecials, activated } = applySwapSpecials(swapped, mask, from, to);
+  const { board: afterSpecials, activated } = disableSpecials
+    ? { board: swapped, activated: false }
+    : applySwapSpecials(swapped, mask, from, to);
 
   const immediateMatches = findMatches(afterSpecials, mask, minMatch);
 
@@ -407,7 +427,7 @@ export const trySwapAndResolve = (
     return empty;
   }
 
-  const resolved = resolveBoard(afterSpecials, mask, minMatch, maxKinds);
+  const resolved = resolveBoard(afterSpecials, mask, minMatch, maxKinds, disableSpecials);
   return {
     moved: true,
     board: resolved.board,
@@ -430,6 +450,7 @@ export const resolveAllSteps = (
   mask: boolean[][],
   minMatch: number,
   maxKinds: number,
+  disableSpecials = false,
 ): ICascadeStep[] => {
   const steps: ICascadeStep[] = [];
   let currentBoard = cloneBoard(board);
@@ -459,7 +480,7 @@ export const resolveAllSteps = (
         matchedByColor[cell.candyBreak] = (matchedByColor[cell.candyBreak] ?? 0) + 1;
       }
     }
-    const cleared = clearMatchedCells(currentBoard, mask, minMatch);
+    const cleared = clearMatchedCells(currentBoard, mask, minMatch, disableSpecials);
     const next = dropAndRefill(cleared, mask, maxKinds);
     steps.push({ matchedPositions: matches, matchedByColor, nextBoard: next });
     currentBoard = next;
