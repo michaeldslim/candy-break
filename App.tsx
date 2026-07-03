@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
+import { MOVE_SAVER_REFUND_CAP } from './src/constants/game';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
 
 const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
@@ -230,6 +231,7 @@ export default function App() {
     frozenCells,
     comboMultiplier,
     timerSecondsLeft,
+    moveSaverRefundsUsed,
   } = useCandyBreak();
 
   const [hudHeight, setHudHeight] = useState(0);
@@ -475,6 +477,8 @@ export default function App() {
         return { label: 'Multi', value: `x${comboMultiplier}`, warn: false };
       case 'locked-tiles':
         return { label: 'Frozen', value: String(frozenCells.filter(fc => fc.hitsRemaining > 0).length), warn: false };
+      case 'move-saver':
+        return { label: 'Saved', value: `${moveSaverRefundsUsed}/${MOVE_SAVER_REFUND_CAP}`, warn: false };
       default:
         return { label: 'Moves', value: String(movesLeft), warn: movesLeft <= 5 };
     }
@@ -525,6 +529,7 @@ export default function App() {
               'timer-attack':    { icon: '⏱️', label: 'Timer Attack',     hint: `Clear ${goal} before time runs out`,       accent: '#1a5c3a' },
               'order-collect':   { icon: '📋', label: 'Order Collect',    hint: `Clear ${targetColor ?? '?'} candies in order`, accent: '#5b2c6f' },
               'combo-goal':      { icon: '🔗', label: 'Combo Goal',       hint: 'Only cascade matches count toward Goal',     accent: '#1a4a6e' },
+              'move-saver':      { icon: '💾', label: 'Move Saver',       hint: `2+ cascades refund 1 move (max ${MOVE_SAVER_REFUND_CAP}/stage)`, accent: '#2d6a4f' },
             };
             const cfg = bannerConfig[playStyle];
             if (!cfg) return null;

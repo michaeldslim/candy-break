@@ -6,7 +6,8 @@ export type PlayStyle =
   | 'bomb-storm'
   | 'timer-attack'
   | 'order-collect'
-  | 'combo-goal';
+  | 'combo-goal'
+  | 'move-saver';
 
 export interface IOrderStep {
   color: string;

@@ -18,6 +18,7 @@ export const BOMB_STORM_SPAWN_RATIO = 0.3;     // spawn at 30% moves remaining
 export const BOMB_STORM_RESPAWNS = 1;          // 1 respawn = 2 bombs total
 export const ORDER_COLLECT_BASE_PER_COLOR = 12;
 export const ORDER_COLLECT_COLORS = ['Red', 'Blue', 'Gold'];
+export const MOVE_SAVER_REFUND_CAP = 3;
 
 export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () =>
   Array.from({ length: GAME_BASE_COLS }, () => true)
@@ -95,6 +96,12 @@ export const GAME_SHAPES: IGameShape[] = [
     label: 'Combo Goal',
     mask: FULL_MASK,
     playStyle: 'combo-goal',
+  },
+  {
+    id: 'move-saver',
+    label: 'Move Saver',
+    mask: FULL_MASK,
+    playStyle: 'move-saver',
   },
 ];
 
