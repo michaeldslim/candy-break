@@ -504,7 +504,9 @@ export default function App() {
               <Text style={styles.statValue}>{level}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>{playStyle === 'multiplier-rush' ? 'Score Goal' : 'Goal'}</Text>
+              <Text style={styles.statLabel}>
+                {playStyle === 'multiplier-rush' ? 'Score Goal' : playStyle === 'combo-goal' ? 'Combos' : 'Goal'}
+              </Text>
               <Text style={styles.statValue}>{goalProgress}/{goal}</Text>
             </View>
             <View style={styles.statCard}>
@@ -522,6 +524,7 @@ export default function App() {
               'bomb-storm':      { icon: '💣', label: 'Bomb Storm',       hint: 'Tap the bomb to advance',                  accent: '#6e2c00' },
               'timer-attack':    { icon: '⏱️', label: 'Timer Attack',     hint: `Clear ${goal} before time runs out`,       accent: '#1a5c3a' },
               'order-collect':   { icon: '📋', label: 'Order Collect',    hint: `Clear ${targetColor ?? '?'} candies in order`, accent: '#5b2c6f' },
+              'combo-goal':      { icon: '🔗', label: 'Combo Goal',       hint: 'Only cascade matches count toward Goal',     accent: '#1a4a6e' },
             };
             const cfg = bannerConfig[playStyle];
             if (!cfg) return null;

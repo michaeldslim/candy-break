@@ -90,6 +90,12 @@ export const GAME_SHAPES: IGameShape[] = [
     mask: FULL_MASK,
     playStyle: 'order-collect',
   },
+  {
+    id: 'combo-goal',
+    label: 'Combo Goal',
+    mask: FULL_MASK,
+    playStyle: 'combo-goal',
+  },
 ];
 
 export const COLOR_POOL: ICandyBreak[] = [

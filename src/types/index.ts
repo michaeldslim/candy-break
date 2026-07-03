@@ -5,7 +5,8 @@ export type PlayStyle =
   | 'multiplier-rush'
   | 'bomb-storm'
   | 'timer-attack'
-  | 'order-collect';
+  | 'order-collect'
+  | 'combo-goal';
 
 export interface IOrderStep {
   color: string;

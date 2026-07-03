@@ -54,6 +54,7 @@ Do **not** duplicate match/cascade logic in the hook — use `gameEngine.ts` exp
 | `bomb-storm` | Clear N candies | Limited | Bomb spawns at 30% moves; respawns |
 | `timer-attack` | Clear N candies | Unlimited | Countdown timer; stars from time left |
 | `order-collect` | Clear N per color in sequence | Limited | Shuffled Red/Blue/Gold queue; only active color counts |
+| `combo-goal` | Reach N cascade steps | Limited | Only step 2+ of a chain counts; setup moves don't |
 
 ## Conventions
 

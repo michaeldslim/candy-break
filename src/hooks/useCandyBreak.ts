@@ -81,7 +81,7 @@ const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
 const DROP_PAUSE_MS = 140;
 // entries matching GAME_SHAPES indices
-const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36];
+const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
 
@@ -143,13 +143,18 @@ interface IGoalProgressResult {
   targetColor?: string | null;
 }
 
+interface IGoalProgressOptions {
+  orderContext?: { orderSteps: IOrderStep[]; orderStepIndex: number };
+  cascadeStepIndex?: number;
+}
+
 const computeGoalAfterSteps = (
   steps: ICascadeStep[],
   style: PlayStyle,
   currentGoalRemaining: number,
   currentTargetColor: string | null,
   currentFrozenCells: IFrozenCell[],
-  orderContext?: { orderSteps: IOrderStep[]; orderStepIndex: number },
+  options?: IGoalProgressOptions,
 ): IGoalProgressResult => {
   const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
   const clearedByColor: Record<string, number> = {};
@@ -167,8 +172,8 @@ const computeGoalAfterSteps = (
     };
   }
 
-  if (style === 'order-collect' && currentTargetColor && orderContext) {
-    const { orderSteps, orderStepIndex } = orderContext;
+  if (style === 'order-collect' && currentTargetColor && options?.orderContext) {
+    const { orderSteps, orderStepIndex } = options.orderContext;
     const colorCleared = clearedByColor[currentTargetColor] ?? 0;
     let remaining = Math.max(0, currentGoalRemaining - colorCleared);
     let stepIndex = orderStepIndex;
@@ -185,6 +190,14 @@ const computeGoalAfterSteps = (
       frozenCells: currentFrozenCells,
       orderStepIndex: stepIndex,
       targetColor: activeColor,
+    };
+  }
+
+  if (style === 'combo-goal' && options?.cascadeStepIndex !== undefined) {
+    const decrement = options.cascadeStepIndex >= 1 ? 1 : 0;
+    return {
+      goalRemaining: Math.max(0, currentGoalRemaining - decrement),
+      frozenCells: currentFrozenCells,
     };
   }
 
@@ -565,9 +578,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           runningGoalRemaining,
           runningTargetColor,
           runningFrozenCells,
-          playStyle === 'order-collect'
-            ? { orderSteps, orderStepIndex: runningOrderStepIndex }
-            : undefined,
+          {
+            orderContext: playStyle === 'order-collect'
+              ? { orderSteps, orderStepIndex: runningOrderStepIndex }
+              : undefined,
+            cascadeStepIndex: playStyle === 'combo-goal' ? stepIndex : undefined,
+          },
         );
         runningGoalRemaining = result.goalRemaining;
         runningFrozenCells = result.frozenCells;
