@@ -2,8 +2,6 @@
 
 A match-3 puzzle game built with React Native and Expo. Swap adjacent candies on a **12×8** board, chain cascades, and clear each stage's goal before your moves run out.
 
-**Version:** 1.2.1 · **Bundle ID:** `com.mike008.candybreak` · Portrait only
-
 ## Gameplay
 
 - **12×8 grid** — every stage uses the full board; variety comes from play-style rules, not board shape
@@ -113,7 +111,7 @@ eas build --platform all --profile production
 eas update --channel production --message "Fix bug / update description"
 ```
 
-OTA updates only reach devices whose `runtimeVersion` matches (`1.2.1` in `app.json`). A new binary build is required when native code changes.
+OTA updates only reach devices whose `runtimeVersion` matches. A new binary build is required when native code changes.
 
 ### Channels
 
