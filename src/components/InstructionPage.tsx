@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Platform, Pressable, SafeAreaView, ScrollView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
@@ -132,6 +133,7 @@ export default function InstructionPage({ onStartGame, onContinueGame, hasSavedG
           <Pressable style={styles.startGameButton} onPress={onStartGame}>
             <Text style={styles.startGameButtonText}>{locale.buttonStart}</Text>
           </Pressable>
+          <Text style={styles.versionText}>v{Constants.expoConfig?.version}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -246,5 +248,12 @@ const styles = StyleSheet.create({
     color: '#fdf0d5',
     fontSize: 17,
     fontWeight: '800',
+  },
+  versionText: {
+    marginTop: 0,
+    color: '#5c6b8a',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
