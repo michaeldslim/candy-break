@@ -17,6 +17,8 @@ import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
 import { MOVE_SAVER_REFUND_CAP } from './src/constants/game';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
+import { I18nProvider, useI18n } from './src/i18n/I18nContext';
+import { PlayStyleBannerKey } from './src/i18n/types';
 
 const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
   Red:  require('./assets/images/candy_red.png'),
@@ -200,6 +202,15 @@ function SpecialOverlay({ type, cellSize }: { type: SpecialType; cellSize: numbe
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function App() {
+  return (
+    <I18nProvider>
+      <AppContent />
+    </I18nProvider>
+  );
+}
+
+function AppContent() {
+  const { strings, format } = useI18n();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const {
     board,
@@ -473,44 +484,89 @@ export default function App() {
   const fourthCard = (() => {
     switch (playStyle) {
       case 'timer-attack':
-        return { label: 'Time', value: String(timerSecondsLeft ?? 0), warn: (timerSecondsLeft ?? 999) <= 15 };
+        return { label: strings.hud.time, value: String(timerSecondsLeft ?? 0), warn: (timerSecondsLeft ?? 999) <= 15 };
       case 'multiplier-rush':
-        return { label: 'Multi', value: `x${comboMultiplier}`, warn: false };
+        return { label: strings.hud.multi, value: `x${comboMultiplier}`, warn: false };
       case 'locked-tiles':
-        return { label: 'Frozen', value: String(frozenCells.filter(fc => fc.hitsRemaining > 0).length), warn: false };
+        return { label: strings.hud.frozen, value: String(frozenCells.filter(fc => fc.hitsRemaining > 0).length), warn: false };
       case 'move-saver':
-        return { label: 'Saved', value: `${moveSaverRefundsUsed}/${MOVE_SAVER_REFUND_CAP}`, warn: false };
+        return { label: strings.hud.saved, value: `${moveSaverRefundsUsed}/${MOVE_SAVER_REFUND_CAP}`, warn: false };
       default:
-        return { label: 'Moves', value: String(movesLeft), warn: movesLeft <= 5 };
+        return { label: strings.hud.moves, value: String(movesLeft), warn: movesLeft <= 5 };
     }
   })();
+
+  const colorLabel = (color: string | null | undefined): string =>
+    color ? (strings.colors[color] ?? color) : '?';
+
+  const bannerIcons: Record<PlayStyleBannerKey, string> = {
+    classic: '🍬',
+    'color-target': '🎯',
+    'locked-tiles': '❄️',
+    'multiplier-rush': '✨',
+    'bomb-storm': '💣',
+    'timer-attack': '⏱️',
+    'order-collect': '📋',
+    'combo-goal': '🔗',
+    'move-saver': '💾',
+    'pure-match': '🧩',
+  };
+
+  const bannerAccents: Record<PlayStyleBannerKey, string> = {
+    classic: '#3a506b',
+    'color-target': '#7b2d8b',
+    'locked-tiles': '#1a5276',
+    'multiplier-rush': '#7d6608',
+    'bomb-storm': '#6e2c00',
+    'timer-attack': '#1a5c3a',
+    'order-collect': '#5b2c6f',
+    'combo-goal': '#1a4a6e',
+    'move-saver': '#2d6a4f',
+    'pure-match': '#4a3728',
+  };
+
+  const getBannerHint = (style: PlayStyleBannerKey): string => {
+    const banner = strings.banners[style];
+    switch (style) {
+      case 'classic':
+      case 'timer-attack':
+        return format(banner.hint, { goal });
+      case 'color-target':
+      case 'order-collect':
+        return format(banner.hint, { color: colorLabel(targetColor) });
+      case 'move-saver':
+        return format(banner.hint, { cap: MOVE_SAVER_REFUND_CAP });
+      default:
+        return banner.hint;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View onLayout={(e) => setHudHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerContainer}>
-          <Text style={styles.title}>Candy Break</Text>
+          <Text style={styles.title}>{strings.app.title}</Text>
           <View style={styles.topRow}>
             <Text style={styles.starsValue}>
-              STARS: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
+              {strings.hud.stars.toUpperCase()}: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
             </Text>
-            <Text style={styles.bestValue}>BEST: 🥇 {bestScore}</Text>
+            <Text style={styles.bestValue}>{strings.hud.best.toUpperCase()}: 🥇 {bestScore}</Text>
           </View>
         </View>
         <View style={styles.hudContent}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Score</Text>
+              <Text style={styles.statLabel}>{strings.hud.score}</Text>
               <Text style={styles.statValue}>{score}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Level</Text>
+              <Text style={styles.statLabel}>{strings.hud.level}</Text>
               <Text style={styles.statValue}>{level}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>
-                {playStyle === 'multiplier-rush' ? 'Score Goal' : playStyle === 'combo-goal' ? 'Combos' : 'Goal'}
+                {playStyle === 'multiplier-rush' ? strings.hud.scoreGoal : playStyle === 'combo-goal' ? strings.hud.combos : strings.hud.goal}
               </Text>
               <Text style={styles.statValue}>{goalProgress}/{goal}</Text>
             </View>
@@ -521,26 +577,15 @@ export default function App() {
           </View>
 
           {(() => {
-            const bannerConfig: Record<string, { icon: string; label: string; hint: string; accent: string }> = {
-              'classic':         { icon: '🍬', label: 'Classic',          hint: `Clear ${goal} candies`,                    accent: '#3a506b' },
-              'color-target':    { icon: '🎯', label: 'Color Target',     hint: `Only ${targetColor ?? '?'} candies count`, accent: '#7b2d8b' },
-              'locked-tiles':    { icon: '❄️', label: 'Locked Tiles',     hint: 'Match next to ❄️ to thaw',                 accent: '#1a5276' },
-              'multiplier-rush': { icon: '✨', label: 'Multiplier Rush',  hint: 'Combos double your score!',                accent: '#7d6608' },
-              'bomb-storm':      { icon: '💣', label: 'Bomb Storm',       hint: 'Tap the bomb to advance',                  accent: '#6e2c00' },
-              'timer-attack':    { icon: '⏱️', label: 'Timer Attack',     hint: `Clear ${goal} before time runs out`,       accent: '#1a5c3a' },
-              'order-collect':   { icon: '📋', label: 'Order Collect',    hint: `Clear ${targetColor ?? '?'} candies in order`, accent: '#5b2c6f' },
-              'combo-goal':      { icon: '🔗', label: 'Combo Goal',       hint: 'Only cascade matches count toward Goal',     accent: '#1a4a6e' },
-              'move-saver':      { icon: '💾', label: 'Move Saver',       hint: `2+ cascades refund 1 move (max ${MOVE_SAVER_REFUND_CAP}/stage)`, accent: '#2d6a4f' },
-              'pure-match':      { icon: '🧩', label: 'Pure Match',       hint: 'No striped or rainbow candies',            accent: '#4a3728' },
-            };
-            const cfg = bannerConfig[playStyle];
-            if (!cfg) return null;
+            const style = playStyle as PlayStyleBannerKey;
+            const banner = strings.banners[style];
+            if (!banner) return null;
             return (
-              <View style={[styles.stageBanner, { backgroundColor: cfg.accent }]}>
-                <Text style={styles.stageBannerIcon}>{cfg.icon}</Text>
+              <View style={[styles.stageBanner, { backgroundColor: bannerAccents[style] }]}>
+                <Text style={styles.stageBannerIcon}>{bannerIcons[style]}</Text>
                 <Text style={styles.stageBannerLine} numberOfLines={1}>
-                  <Text style={styles.stageBannerLabel}>{cfg.label}</Text>
-                  <Text style={styles.stageBannerHint}>  {cfg.hint}</Text>
+                  <Text style={styles.stageBannerLabel}>{banner.label}</Text>
+                  <Text style={styles.stageBannerHint}>  {getBannerHint(style)}</Text>
                 </Text>
                 {playStyle === 'color-target' && targetColor ? (
                   <Image source={CANDY_IMAGES[targetColor]} style={{ width: 26, height: 26 }} resizeMode="contain" />
@@ -689,15 +734,15 @@ export default function App() {
               onPress={() => (won ? restartFromLevelOne() : restart())}
             >
               <View style={styles.gameOverCard}>
-                <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
+                <Text style={styles.gameOverTitle}>{won ? strings.gameOver.titleWin : strings.gameOver.titleLose}</Text>
                 <Text style={styles.gameOverBody}>
                   {won
-                    ? 'All stages completed! Tap anywhere to start a new game.'
+                    ? strings.gameOver.win
                     : playStyle === 'timer-attack'
-                      ? 'Time ran out! Tap anywhere to retry this stage.'
+                      ? strings.gameOver.timeOut
                       : playStyle === 'locked-tiles'
-                        ? 'Too many frozen tiles remain. Tap anywhere to retry this stage.'
-                        : 'No moves left. Tap anywhere to retry this stage.'}
+                        ? strings.gameOver.frozenRemain
+                        : strings.gameOver.noMoves}
                 </Text>
               </View>
             </Pressable>
@@ -721,7 +766,7 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={styles.stageCompleteTitle}>Stage Clear!</Text>
+              <Text style={styles.stageCompleteTitle}>{strings.stageClear}</Text>
               <Text style={styles.stageCompleteStars}>
                 {[1, 2, 3].map((i) => (i <= stageStars ? '★' : '☆')).join('  ')}
               </Text>
@@ -739,7 +784,7 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={styles.comboText}>+combo x{combo}!</Text>
+              <Text style={styles.comboText}>{format(strings.combo, { combo })}</Text>
             </Animated.View>
           ) : null}
         </View>
