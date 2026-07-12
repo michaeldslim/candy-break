@@ -39,7 +39,7 @@ Touch these files in order:
    - Extend `tapCell` / `finalizeMove` for goal tracking, move consumption, win/loss, bomb spawn
    - Extend `ISavedGame` + save/restore if the mode has persistent mid-stage state
 4. **`App.tsx`** — `bannerConfig` entry; update `fourthCard` HUD if the mode needs a custom stat
-5. **`src/components/InstructionPage.tsx`** — add ko/en instructions for the new mode
+5. **`src/i18n/translations.ts`** — add ko/en strings for banner, HUD, and instructions
 
 Do **not** duplicate match/cascade logic in the hook — use `gameEngine.ts` exports.
 
@@ -65,6 +65,7 @@ Do **not** duplicate match/cascade logic in the hook — use `gameEngine.ts` exp
 - Candy colors: `Red`, `Blue`, `Gold`, `Mint` — assets in `assets/images/`
 - Specials: 4-match → striped, 5+ → rainbow (engine handles spawn/clear)
 - Scoring constants: `SCORE_BASE_POINTS`, `SCORE_EXTRA_TILE_POINTS`, `SCORE_COMBO_POINTS`, `BOMB_SCORE_BONUS`
-- Persistence: `AsyncStorage` keys `bestScore`, `savedGame`, `stars_L{level}_S{shapeIndex}`
+- Persistence: `AsyncStorage` keys `bestScore`, `savedGame`, `stars_L{level}_S{shapeIndex}`, `appLanguage`
+- i18n: `src/i18n/` — `I18nProvider` in `App.tsx`; `useI18n()` + `translations.ts` for all UI copy (ko/en)
 - Run `npm run typecheck` after changes; keep diffs minimal and match existing patterns
 - OTA-safe changes only in JS/assets; native changes require new EAS build (`runtimeVersion` in `app.json`)
