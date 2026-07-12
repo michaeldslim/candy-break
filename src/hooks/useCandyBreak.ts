@@ -449,19 +449,17 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         return;
       }
 
-      // Locked-tiles: block swapping a frozen cell
+      // Locked-tiles: frozen cells cannot be selected or swapped; ignore taps on them
       if (playStyle === 'locked-tiles') {
-        const fc = frozenCells.find(f => f.row === row && f.col === col && f.hitsRemaining > 0);
-        if (fc) {
-          setSelectedCell(null);
+        const isFrozenAt = (r: number, c: number) =>
+          frozenCells.some(f => f.row === r && f.col === c && f.hitsRemaining > 0);
+
+        if (isFrozenAt(row, col)) {
           return;
         }
-        if (selectedCell) {
-          const selFrozen = frozenCells.find(f => f.row === selectedCell.row && f.col === selectedCell.col && f.hitsRemaining > 0);
-          if (selFrozen) {
-            setSelectedCell(null);
-            return;
-          }
+        if (selectedCell && isFrozenAt(selectedCell.row, selectedCell.col)) {
+          setSelectedCell(null);
+          return;
         }
       }
 

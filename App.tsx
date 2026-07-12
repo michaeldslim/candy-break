@@ -217,6 +217,7 @@ export default function App() {
     level,
     combo,
     tapCell,
+    restart,
     restartFromLevelOne,
     bombPosition,
     bombActivating,
@@ -605,8 +606,10 @@ export default function App() {
 
                   if (isFrozen) {
                     return (
-                      <View
+                      <Pressable
                         key={`cell-${rowIndex}-${colIndex}`}
+                        onPress={() => tapCell(rowIndex, colIndex)}
+                        disabled={gameOver || isResolving}
                         style={{
                           width: cellSize,
                           height: cellSize,
@@ -633,7 +636,7 @@ export default function App() {
                         >
                           {frozenCell!.hitsRemaining === 2 ? '❄️❄️' : '❄️'}
                         </Text>
-                      </View>
+                      </Pressable>
                     );
                   }
 
@@ -681,18 +684,23 @@ export default function App() {
           ))}
 
           {gameOver ? (
-            <View style={styles.gameOverOverlay}>
-              <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
-              <Text style={styles.gameOverBody}>
-                {won
-                  ? 'Great matching! All stages completed.'
-                  : playStyle === 'timer-attack'
-                    ? 'Time ran out! Tap Restart to try again.'
-                    : playStyle === 'locked-tiles'
-                      ? 'Too many frozen tiles remain. Tap Restart.'
-                      : 'No moves left. Tap Restart to try again.'}
-              </Text>
-            </View>
+            <Pressable
+              style={styles.gameOverOverlay}
+              onPress={() => (won ? restartFromLevelOne() : restart())}
+            >
+              <View style={styles.gameOverCard}>
+                <Text style={styles.gameOverTitle}>{won ? 'You Win!' : 'Game Over'}</Text>
+                <Text style={styles.gameOverBody}>
+                  {won
+                    ? 'All stages completed! Tap anywhere to start a new game.'
+                    : playStyle === 'timer-attack'
+                      ? 'Time ran out! Tap anywhere to retry this stage.'
+                      : playStyle === 'locked-tiles'
+                        ? 'Too many frozen tiles remain. Tap anywhere to retry this stage.'
+                        : 'No moves left. Tap anywhere to retry this stage.'}
+                </Text>
+              </View>
+            </Pressable>
           ) : null}
 
           {stageStars !== null ? (
@@ -859,9 +867,23 @@ const styles = StyleSheet.create({
   },
   gameOverOverlay: {
     position: 'absolute',
-    top: '35%',
+    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 19, 43, 0.82)',
+    borderRadius: 12,
+  },
+  gameOverCard: {
+    marginHorizontal: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    backgroundColor: 'rgba(28, 37, 65, 0.95)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 209, 102, 0.35)',
     alignItems: 'center',
   },
   stageCompleteOverlay: {
@@ -909,14 +931,22 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   gameOverTitle: {
-    color: '#ffb703',
+    color: '#ffd166',
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: '900',
+    textShadowColor: '#0b132b',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   gameOverBody: {
-    marginTop: 6,
+    marginTop: 10,
     color: '#fdf0d5',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
     textAlign: 'center',
+    textShadowColor: '#0b132b',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 });
