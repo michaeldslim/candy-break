@@ -29,6 +29,8 @@ import {
 interface ISavedGame {
   level: number;
   shapeIndex: number;
+  stageOrder?: number[];
+  stageSlot?: number;
   score: number;
   movesLeft: number;
   goalRemaining: number;
@@ -106,6 +108,23 @@ const calcStars = (
 
 const getMovesForLevel = (level: number): number =>
   LEVEL_MOVES[level - 1] ?? LEVEL_MOVES[LEVEL_MOVES.length - 1] ?? GAME_CONFIG.easyMoves;
+
+const shuffleIndices = (indices: number[]): number[] => {
+  const result = [...indices];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = result[i]!;
+    result[i] = result[j]!;
+    result[j] = tmp;
+  }
+  return result;
+};
+
+const createStageOrder = (pool?: number[]): number[] =>
+  shuffleIndices(pool ?? GAME_SHAPES.map((_, index) => index));
+
+const createSequentialStageOrder = (): number[] =>
+  GAME_SHAPES.map((_, index) => index);
 
 const createOrderSteps = (level: number): IOrderStep[] => {
   const multiplier =
@@ -316,17 +335,50 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
   };
 };
 
+interface ILevelRunState {
+  stageOrder: number[];
+  stageSlot: number;
+  init: IStageInit;
+}
+
+const createNewLevelState = (level: number, pool?: number[]): ILevelRunState => {
+  const stageOrder = createStageOrder(pool);
+  const stageSlot = 0;
+  const shapeIndex = stageOrder[stageSlot] ?? 0;
+  return { stageOrder, stageSlot, init: initializeStage(shapeIndex, level) };
+};
+
+const resolveStageFromSave = (
+  saved: ISavedGame,
+): { stageOrder: number[]; stageSlot: number; shapeIndex: number } => {
+  if (saved.stageOrder && saved.stageSlot !== undefined) {
+    const shapeIndex = saved.stageOrder[saved.stageSlot] ?? saved.shapeIndex;
+    return { stageOrder: saved.stageOrder, stageSlot: saved.stageSlot, shapeIndex };
+  }
+  const stageOrder = createSequentialStageOrder();
+  const stageSlot = Math.max(0, stageOrder.indexOf(saved.shapeIndex));
+  return { stageOrder, stageSlot, shapeIndex: stageOrder[stageSlot] ?? saved.shapeIndex };
+};
+
 export const useCandyBreak = (): IUseCandyBreakResult => {
+  const initialLevelRef = useRef<ILevelRunState | undefined>(undefined);
+  if (initialLevelRef.current === undefined) {
+    initialLevelRef.current = createNewLevelState(START_LEVEL);
+  }
+  const initialLevel = initialLevelRef.current;
+
   const [level, setLevel] = useState(START_LEVEL);
-  const [shapeIndex, setShapeIndex] = useState(0);
-  const [board, setBoard] = useState<IBoard>(() => initializeStage(0, START_LEVEL).board);
+  const [stageOrder, setStageOrder] = useState<number[]>(initialLevel.stageOrder);
+  const [stageSlot, setStageSlot] = useState(initialLevel.stageSlot);
+  const shapeIndex = stageOrder[stageSlot] ?? 0;
+  const [board, setBoard] = useState<IBoard>(initialLevel.init.board);
   const [selectedCell, setSelectedCell] = useState<IPosition | null>(null);
   const [matchedCellKeys, setMatchedCellKeys] = useState<string[]>([]);
   const [isResolving, setIsResolving] = useState(false);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
-  const [movesLeft, setMovesLeft] = useState(() => getMovesForLevel(START_LEVEL));
-  const [goalRemaining, setGoalRemaining] = useState(() => getGoalForStage(0, START_LEVEL));
+  const [movesLeft, setMovesLeft] = useState(() => initialLevel.init.moves);
+  const [goalRemaining, setGoalRemaining] = useState(() => initialLevel.init.goal);
   const [won, setWon] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
@@ -494,15 +546,16 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           }
 
           // Advance to next stage
-          const isLastShape = shapeIndex >= GAME_SHAPES.length - 1;
-          if (isLastShape) {
+          const isLastStage = stageSlot >= stageOrder.length - 1;
+          if (isLastStage) {
             const isLastLevel = level >= MAX_LEVEL;
             if (!isLastLevel) {
               const nextLevel = level + 1;
-              const init = initializeStage(0, nextLevel);
+              const nextRun = createNewLevelState(nextLevel);
               setLevel(nextLevel);
-              setShapeIndex(0);
-              applyStageInit(init);
+              setStageOrder(nextRun.stageOrder);
+              setStageSlot(nextRun.stageSlot);
+              applyStageInit(nextRun.init);
               return;
             }
             setWon(true);
@@ -511,9 +564,10 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
             return;
           }
 
-          const nextShapeIndex = shapeIndex + 1;
+          const nextSlot = stageSlot + 1;
+          const nextShapeIndex = stageOrder[nextSlot] ?? 0;
           const init = initializeStage(nextShapeIndex, level);
-          setShapeIndex(nextShapeIndex);
+          setStageSlot(nextSlot);
           applyStageInit(init);
         }, MATCH_ANIMATION_MS);
         return;
@@ -633,10 +687,19 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
       if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
 
-      const saveNewStage = (newBoard: IBoard, newLevel: number, newShapeIndex: number, newScore: number): void => {
+      const saveNewStage = (
+        newBoard: IBoard,
+        newLevel: number,
+        newStageOrder: number[],
+        newStageSlot: number,
+        newScore: number,
+      ): void => {
+        const newShapeIndex = newStageOrder[newStageSlot] ?? 0;
         const snap: ISavedGame = {
           level: newLevel,
           shapeIndex: newShapeIndex,
+          stageOrder: newStageOrder,
+          stageSlot: newStageSlot,
           score: newScore,
           movesLeft: getMovesForLevel(newLevel),
           goalRemaining: getGoalForStage(newShapeIndex, newLevel),
@@ -649,17 +712,24 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       const advanceAfterStars = (): void => {
         setStageStars(null);
         const currentScore = score + effectivePoints;
-        const isLastShape = shapeIndex >= GAME_SHAPES.length - 1;
-        if (isLastShape) {
+        const isLastStage = stageSlot >= stageOrder.length - 1;
+        if (isLastStage) {
           const isLastLevel = level >= MAX_LEVEL;
           if (!isLastLevel) {
             const nextLevel = level + 1;
-            const init = initializeStage(0, nextLevel);
+            const nextRun = createNewLevelState(nextLevel);
             setLevel(nextLevel);
-            setShapeIndex(0);
-            applyStageInit(init);
+            setStageOrder(nextRun.stageOrder);
+            setStageSlot(nextRun.stageSlot);
+            applyStageInit(nextRun.init);
             setScore(currentScore);
-            saveNewStage(init.board, nextLevel, 0, currentScore);
+            saveNewStage(
+              nextRun.init.board,
+              nextLevel,
+              nextRun.stageOrder,
+              nextRun.stageSlot,
+              currentScore,
+            );
             return;
           }
           setIsResolving(false);
@@ -667,12 +737,13 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           setGameOver(true);
           return;
         }
-        const nextShapeIndex = shapeIndex + 1;
+        const nextSlot = stageSlot + 1;
+        const nextShapeIndex = stageOrder[nextSlot] ?? 0;
         const init = initializeStage(nextShapeIndex, level);
-        setShapeIndex(nextShapeIndex);
+        setStageSlot(nextSlot);
         applyStageInit(init);
         setScore(currentScore);
-        saveNewStage(init.board, level, nextShapeIndex, currentScore);
+        saveNewStage(init.board, level, stageOrder, nextSlot, currentScore);
       };
 
       const finalizeMove = (): void => {
@@ -739,6 +810,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           const snap: ISavedGame = {
             level,
             shapeIndex,
+            stageOrder,
+            stageSlot,
             score: score + effectivePoints,
             movesLeft: finalMoves,
             goalRemaining: runningGoalRemaining,
@@ -809,6 +882,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       selectedCell,
       shapeIndex,
       shapeMask,
+      stageOrder,
+      stageSlot,
       targetColor,
       timerSecondsLeft,
       won,
@@ -827,9 +902,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       timerIntervalRef.current = null;
     }
 
-    const shape = GAME_SHAPES[saved.shapeIndex] ?? GAME_SHAPES[0];
+    const { stageOrder: restoredOrder, stageSlot: restoredSlot, shapeIndex: restoredShapeIndex } =
+      resolveStageFromSave(saved);
+    const shape = GAME_SHAPES[restoredShapeIndex] ?? GAME_SHAPES[0];
     setLevel(saved.level);
-    setShapeIndex(saved.shapeIndex);
+    setStageOrder(restoredOrder);
+    setStageSlot(restoredSlot);
     setScore(saved.score);
     setMovesLeft(saved.movesLeft);
     setGoalRemaining(saved.goalRemaining);
@@ -869,10 +947,10 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setWon(false);
     setGameOver(false);
     setScore(0);
-    const init = initializeStage(shapeIndex, level);
-    setShapeIndex(shapeIndex);
+    const currentShapeIndex = stageOrder[stageSlot] ?? 0;
+    const init = initializeStage(currentShapeIndex, level);
     applyStageInit(init);
-  }, [applyStageInit, level, shapeIndex]);
+  }, [applyStageInit, level, stageOrder, stageSlot]);
 
   const restartFromLevelOne = useCallback(() => {
     if (resolveTimerRef.current) {
@@ -885,12 +963,14 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     }
     AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
     setHasSavedGame(false);
+    const nextRun = createNewLevelState(START_LEVEL);
     setLevel(START_LEVEL);
-    setShapeIndex(0);
+    setStageOrder(nextRun.stageOrder);
+    setStageSlot(nextRun.stageSlot);
     setScore(0);
     setWon(false);
     setGameOver(false);
-    applyStageInit(initializeStage(0, START_LEVEL));
+    applyStageInit(nextRun.init);
   }, [applyStageInit]);
 
   const cycleShape = useCallback(() => {
@@ -902,13 +982,14 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-    const nextIndex = (shapeIndex + 1) % GAME_SHAPES.length;
-    setShapeIndex(nextIndex);
+    const nextSlot = (stageSlot + 1) % stageOrder.length;
+    const nextShapeIndex = stageOrder[nextSlot] ?? 0;
+    setStageSlot(nextSlot);
     setScore(0);
     setWon(false);
     setGameOver(false);
-    applyStageInit(initializeStage(nextIndex, level));
-  }, [applyStageInit, level, shapeIndex]);
+    applyStageInit(initializeStage(nextShapeIndex, level));
+  }, [applyStageInit, level, stageOrder, stageSlot]);
 
   const goal = useMemo(() => {
     if (playStyle === 'order-collect' && orderSteps.length > 0) {
