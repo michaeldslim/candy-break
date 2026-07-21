@@ -15,8 +15,70 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 | 2 | Update goal counter immediately when a move is accepted | **done** |
 | 3 | Game Over overlay readability + tap-to-retry | **done** |
 | 4 | App-wide i18n (ko/en) with persistence | **done** |
-| 5 | Random mode order per level (shuffle once) | pending |
-| ~~6~~ | ~~Diamond Board (`shape-classic`)~~ | **reverted** |
+| 5 | Random mode order per level (shuffle once) | **done** |
+| 6 | Level-gated `activePool` (subset shuffle per level) | pending |
+| 7 | Tier B modes (Level 4+ pool only) | pending |
+| ~~8~~ | ~~Diamond Board (`shape-classic`)~~ | **reverted** |
+
+## Roadmap: expanding play styles
+
+Progressive rollout — do not add modes to every level at once.
+
+| Step | What | Why |
+|------|------|-----|
+| **5** ✅ | `stageOrder` / `stageSlot` shuffle | Replayability without new content |
+| **6** | `activePool` per level — shuffle a **subset** of indices | Keeps run length sane as roster grows |
+| **7** | Add 1–2 Tier B modes into Level 4+ pools only | Fresh content for veterans, gentle onboarding |
+| — | Mode-select / practice screen | Deferred until players ask |
+
+### Step 5 — shipped: random mode order per level
+
+At the **start of each level**, shuffle all `GAME_SHAPES` indices once. Play each mode exactly once in that random order. Reshuffle on next level.
+
+- State: `stageOrder: number[]`, `stageSlot: number`
+- Derived: `shapeIndex = stageOrder[stageSlot]`
+- Persist in `ISavedGame`; old saves migrate to sequential order + slot from `shapeIndex`
+- Stars key unchanged: `stars_L${level}_S${shapeIndex}`
+
+**Files:** `useCandyBreak.ts`
+
+### Step 6 — pending: level-gated `activePool`
+
+Replace "always shuffle all N modes" with a **pool per level** that grows as the player advances.
+
+| Level | Pool tier | Stages per level (target) |
+|-------|-----------|---------------------------|
+| 1–2 | Core only | 5 |
+| 3–4 | Core + Mid | 7 |
+| 5 | Core + Mid + Advanced (+ Tier B when shipped) | 8–10 |
+
+**Core:** `classic`, `color-target`, `locked-tiles`, `bomb-storm`  
+**Mid:** `timer-attack`, `move-saver`, `pure-match`  
+**Advanced:** `multiplier-rush`, `order-collect`, `combo-goal`
+
+Implementation sketch:
+
+- `getActivePool(level: number): number[]` — returns eligible shape indices
+- `createStageOrder(pool)` — already accepts optional pool; pass `getActivePool(level)`
+- Unlock is implicit via level — no score gate, no mode-select UI
+- Persist `activePool` in save or re-derive from `level` on resume
+
+**Files:** `useCandyBreak.ts`, optionally `src/constants/game.ts` for pool tiers
+
+### Step 7 — pending: Tier B modes (Level 4+ only)
+
+Add after Step 6 so new modes do not bloat early levels.
+
+**Candidates:** `jelly-tiles`, `stone-blocks`, `special-hunt`  
+**Tier C (later):** `color-flood`, `ice-spread`, `mystery`
+
+Per-mode checklist (same as candy-break rule):
+
+1. `src/types/index.ts` — `PlayStyle`, optional `IGameShape` fields
+2. `src/constants/game.ts` — append to `GAME_SHAPES` + pool tier constant
+3. `src/hooks/useCandyBreak.ts` — `SHAPE_GOALS`, `initializeStage`, goal/finalize logic, save/restore
+4. `App.tsx` — banner + fourth HUD card if needed
+5. `src/i18n/translations.ts` — ko/en strings
 
 ## Architecture (i18n)
 
@@ -59,17 +121,6 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 
 **Files:** `App.tsx`, `useCandyBreak.ts`
 
-## Pending: random mode order per level
-
-At the **start of each level**, shuffle all `GAME_SHAPES` indices once. Play each mode exactly once in that random order. Reshuffle on next level.
-
-- New state: `stageOrder: number[]`, `stageSlot: number`
-- Derived: `shapeIndex = stageOrder[stageSlot]`
-- Persist in `ISavedGame`; migrate old saves best-effort
-- Stars key unchanged: `stars_L${level}_S${shapeIndex}`
-
-**Files:** `useCandyBreak.ts`
-
 ## Play styles (current — 10 modes)
 
 | Style | Goal | Moves | Notes |
@@ -85,11 +136,6 @@ At the **start of each level**, shuffle all `GAME_SHAPES` indices once. Play eac
 | `move-saver` | Clear N candies | Limited | 2+ cascade refunds 1 move (max 3/stage) |
 | `pure-match` | Clear N candies | Limited | No striped/rainbow |
 
-## Candidate modes (deferred)
-
-**Tier B:** `jelly-tiles`, `stone-blocks`, `special-hunt`  
-**Tier C:** `color-flood`, `ice-spread`, `mystery`
-
 ## Testing checklist
 
 ### Shipped
@@ -100,15 +146,27 @@ At the **start of each level**, shuffle all `GAME_SHAPES` indices once. Play eac
 - [x] Language toggle on intro only; persists across sessions
 - [x] ko/en HUD, banners, overlays, instructions
 
-### Shuffle (pending)
+### Shuffle (step 5)
 
 - [ ] New game Level 1 — random stage order differs between runs
 - [ ] Complete all stages — next level reshuffles
 - [ ] Resume saved game — `stageOrder` / `stageSlot` restored
+- [ ] Old save without `stageOrder` — migrates to sequential order
+
+### Active pool (step 6)
+
+- [ ] Level 1 — only core modes appear; ~5 stages
+- [ ] Level 5 — advanced modes in shuffle; run length ≤ 10 stages
+- [ ] Resume mid-level — same pool, same remaining stages
+
+### Tier B (step 7)
+
+- [ ] New mode appears only Level 4+
+- [ ] Stars, goals, save/restore for new mode
 
 ## Out of scope
 
 - Board shape / mask variety
 - Mode-select / practice screen
 - Goal progress bar animation
-- Changing stages per level count (`GAME_SHAPES.length`)
+- Score-based mode unlocks
