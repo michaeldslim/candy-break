@@ -8,6 +8,9 @@ import {
   GAME_CONFIG,
   GAME_SHAPES,
   LOCKED_TILES_FREEZE_RATIO,
+  POOL_TIER_ADVANCED,
+  POOL_TIER_CORE,
+  POOL_TIER_MID,
   MOVE_SAVER_REFUND_CAP,
   ORDER_COLLECT_BASE_PER_COLOR,
   ORDER_COLLECT_COLORS,
@@ -120,11 +123,33 @@ const shuffleIndices = (indices: number[]): number[] => {
   return result;
 };
 
-const createStageOrder = (pool?: number[]): number[] =>
-  shuffleIndices(pool ?? GAME_SHAPES.map((_, index) => index));
-
 const createSequentialStageOrder = (): number[] =>
   GAME_SHAPES.map((_, index) => index);
+
+const getActivePool = (level: number): number[] => {
+  if (level <= 2) {
+    return [...POOL_TIER_CORE];
+  }
+  if (level <= 4) {
+    return [...POOL_TIER_CORE, ...POOL_TIER_MID];
+  }
+  return [...POOL_TIER_CORE, ...POOL_TIER_MID, ...POOL_TIER_ADVANCED];
+};
+
+const getStageCountForLevel = (level: number): number => {
+  if (level <= 2) {
+    return 5;
+  }
+  if (level <= 4) {
+    return 7;
+  }
+  return 8 + Math.floor(Math.random() * 3);
+};
+
+const sampleStageOrder = (pool: number[], count: number): number[] => {
+  const shuffled = shuffleIndices(pool);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+};
 
 const createOrderSteps = (level: number): IOrderStep[] => {
   const multiplier =
@@ -341,8 +366,9 @@ interface ILevelRunState {
   init: IStageInit;
 }
 
-const createNewLevelState = (level: number, pool?: number[]): ILevelRunState => {
-  const stageOrder = createStageOrder(pool);
+const createNewLevelState = (level: number, poolOverride?: number[]): ILevelRunState => {
+  const activePool = poolOverride ?? getActivePool(level);
+  const stageOrder = sampleStageOrder(activePool, getStageCountForLevel(level));
   const stageSlot = 0;
   const shapeIndex = stageOrder[stageSlot] ?? 0;
   return { stageOrder, stageSlot, init: initializeStage(shapeIndex, level) };

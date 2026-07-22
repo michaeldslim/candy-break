@@ -117,3 +117,8 @@ export const COLOR_POOL: ICandyBreak[] = [
   { candyBreak: 'Gold' },
   { candyBreak: 'Mint' },
 ];
+
+/** GAME_SHAPES indices per pool tier — keep in sync with GAME_SHAPES order. */
+export const POOL_TIER_CORE = [0, 1, 2, 4] as const;
+export const POOL_TIER_MID = [5, 8, 9] as const;
+export const POOL_TIER_ADVANCED = [3, 6, 7] as const;
