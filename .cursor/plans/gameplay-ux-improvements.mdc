@@ -17,38 +17,34 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 | 4 | App-wide i18n (ko/en) with persistence | **done** |
 | 5 | Random mode order per level (`stageOrder` / `stageSlot`) | **done** |
 | 6 | Level-gated `activePool` (subset shuffle per level) | **done** |
-| 7 | Tier B modes (Level 4+ pool only) | **next** |
+| 7 | Tier B modes — `jelly-tiles`, `stone-blocks` (Level 4+ pool) | **done** |
 | ~~8~~ | ~~Diamond Board (`shape-classic`)~~ | **reverted** |
 
-**Current focus:** Step 7 — add 1–2 Tier B modes into Level 4+ pools.
-
 ## Roadmap: expanding play styles
-
-Progressive rollout — do not add modes to every level at once.
 
 | Step | What | Status |
 |------|------|--------|
 | 5 | `stageOrder` / `stageSlot` shuffle | **done** |
 | 6 | `activePool` per level — shuffle a **subset** of indices | **done** |
-| 7 | Add 1–2 Tier B modes into Level 4+ pools only | **next** |
+| 7 | Tier B modes in Level 4+ pools | **done** |
 | — | Mode-select / practice screen | deferred |
+| — | Tier C modes (`color-flood`, `ice-spread`, `mystery`, `special-hunt`) | deferred |
 
 ## Architecture (stage progression)
 
 | Concept | Location | Notes |
 |---------|----------|-------|
-| Shape roster | `GAME_SHAPES` in `src/constants/game.ts` | Fixed list; index = `shapeIndex` |
-| Pool tiers | `POOL_TIER_CORE`, `_MID`, `_ADVANCED` in `game.ts` | Indices into `GAME_SHAPES` |
-| Active pool | `getActivePool(level)` in `useCandyBreak.ts` | Level 1–2: core; 3–4: core+mid; 5+: all tiers |
+| Shape roster | `GAME_SHAPES` in `src/constants/game.ts` | 12 modes; index = `shapeIndex` |
+| Pool tiers | `POOL_TIER_*` in `game.ts` | Core / Mid / Advanced / B |
+| Active pool | `getActivePool(level)` | See table below |
 | Stage count | `getStageCountForLevel(level)` | Target 5 / 7 / 8–10; capped by pool size |
-| Level shuffle | `sampleStageOrder(pool, count)` | Fisher-Yates subset, then order shuffle |
-| New level | `createNewLevelState(level)` | `sampleStageOrder(getActivePool(level), count)` + `stageSlot = 0` |
-| Runtime state | `stageOrder`, `stageSlot` in `useCandyBreak.ts` | `shapeIndex = stageOrder[stageSlot]` (derived) |
-| Advance stage | `stageSlot + 1` | Last slot → next level → new pool sample + shuffle |
-| Save / resume | `ISavedGame.stageOrder`, `stageSlot` | Pool re-derived from `level` only for **new** levels; resume keeps saved `stageOrder` |
-| Stars | `stars_L${level}_S${shapeIndex}` | Unchanged — keyed by shape, not slot |
+| Level shuffle | `sampleStageOrder(pool, count)` | Random subset + Fisher-Yates order |
+| New level | `createNewLevelState(level)` | Fresh pool sample + `stageSlot = 0` |
+| Runtime state | `stageOrder`, `stageSlot` | `shapeIndex = stageOrder[stageSlot]` |
+| Save / resume | `ISavedGame` incl. mode-specific fields | `jellyCells`, `stoneCells`, etc. |
+| Stars | `stars_L${level}_S${shapeIndex}` | Keyed by shape, not slot |
 
-**Helpers:** `shuffleIndices`, `getActivePool`, `getStageCountForLevel`, `sampleStageOrder`, `createSequentialStageOrder`, `createNewLevelState`, `resolveStageFromSave`
+**Helpers:** `shuffleIndices`, `getActivePool`, `getStageCountForLevel`, `sampleStageOrder`, `pickRandomCellPositions`, `createNewLevelState`, `resolveStageFromSave`, `computeGoalAfterSteps`
 
 **Files:** `src/constants/game.ts`, `src/hooks/useCandyBreak.ts`
 
@@ -59,14 +55,24 @@ Progressive rollout — do not add modes to every level at once.
 | Core | `POOL_TIER_CORE` | `classic`, `color-target`, `locked-tiles`, `bomb-storm` | 0, 1, 2, 4 |
 | Mid | `POOL_TIER_MID` | `timer-attack`, `move-saver`, `pure-match` | 5, 8, 9 |
 | Advanced | `POOL_TIER_ADVANCED` | `multiplier-rush`, `order-collect`, `combo-goal` | 3, 6, 7 |
+| B | `POOL_TIER_B` | `jelly-tiles`, `stone-blocks` | 10, 11 |
+
+### Active pool by level
+
+| Level | Pool |
+|-------|------|
+| 1–2 | Core |
+| 3 | Core + Mid |
+| 4 | Core + Mid + Tier B |
+| 5 | Core + Mid + Advanced + Tier B |
 
 ### Stages per level
 
-| Level | Pool | Target stages | Actual (current roster) |
-|-------|------|---------------|-------------------------|
-| 1–2 | Core | 5 | **4** (core pool has 4 modes) |
-| 3–4 | Core + Mid | 7 | 7 |
-| 5 | All tiers | 8–10 (random) | 8–10 |
+| Level | Target stages | Actual (current roster) |
+|-------|---------------|-------------------------|
+| 1–2 | 5 | **4** (core pool size) |
+| 3–4 | 5 / 7 | min(target, pool size) |
+| 5 | 8–10 | 8–10 |
 
 ## Architecture (i18n)
 
@@ -78,88 +84,68 @@ Progressive rollout — do not add modes to every level at once.
 | Context | `src/i18n/I18nContext.tsx` | `I18nProvider`, `useI18n`, AsyncStorage `appLanguage` |
 | Toggle | `src/components/LanguageToggle.tsx` | KO/EN switch (intro screen only) |
 
-- Language choice persists in `AsyncStorage` key `appLanguage` (`ko` | `en`, default `ko`)
-- `App.tsx` wraps content in `I18nProvider`; intro sets language, game screens read it
-- Add new UI strings to **both** `ko` and `en` in `translations.ts`; use `format()` for dynamic values
-
 ## Shipped fixes
+
+### Tier B modes (step 7)
+
+**`jelly-tiles`** (index 10)
+- ~15% of cells have jelly overlay (`JELLY_TILES_RATIO`)
+- Goal: clear all jelly — removed when that cell is part of a match
+- Candy swaps normally; green border overlay in UI
+
+**`stone-blocks`** (index 11)
+- ~12% of cells are stones (`STONE_BLOCKS_RATIO`); 1 adjacent match breaks each
+- Goal: destroy all stones; blocks selection like frozen tiles
+- Gray 🪨 overlay UI
+
+Only appear in pools for **level 4+** (`getActivePool`).
+
+**Files:** `types/index.ts`, `constants/game.ts`, `useCandyBreak.ts`, `App.tsx`, `i18n/*`
 
 ### Level-gated active pool (step 6)
 
-Each level samples a **subset** of modes from a level-appropriate pool, then shuffles play order.
-
-- `getActivePool(level)` — which shape indices are eligible
-- `getStageCountForLevel(level)` — how many to pick (capped at pool size)
-- `sampleStageOrder(pool, count)` — random subset + shuffle
-- `createNewLevelState` uses pool logic automatically on new game and level advance
-- No score gate; no mode-select UI; no extra save field
-
-**Files:** `src/constants/game.ts`, `useCandyBreak.ts`
+Subset shuffle per level via `getActivePool` + `sampleStageOrder`. **Files:** `game.ts`, `useCandyBreak.ts`
 
 ### Random mode order per level (step 5)
 
-- `stageOrder: number[]`, `stageSlot: number`, derived `shapeIndex`
-- Persisted in `ISavedGame`; old saves migrate via `resolveStageFromSave`
-- Stars key unchanged: `stars_L${level}_S${shapeIndex}`
-
-**Files:** `useCandyBreak.ts`
+`stageOrder` / `stageSlot`, derived `shapeIndex`, save migration. **Files:** `useCandyBreak.ts`
 
 ### Bomb / lightning flash
 
-`bombActivating: IPosition | null` — UI treats a cell as bomb if `bombPosition` **or** `bombActivating` matches.
-
-**Files:** `useCandyBreak.ts`, `App.tsx`
+`bombActivating` — **Files:** `useCandyBreak.ts`, `App.tsx`
 
 ### Immediate goal update
 
-`goalRemaining` updates per cascade step via `computeGoalAfterSteps`, not only in `finalizeMove`.
-
-**Files:** `useCandyBreak.ts`
+`computeGoalAfterSteps` per cascade step — **Files:** `useCandyBreak.ts`
 
 ### Game Over overlay
 
-- Full-board dim + card panel for readable text
-- Tap overlay → `restart()` (retry stage) or `restartFromLevelOne()` (full win)
-
-**Files:** `App.tsx`
+Dim + card; tap to retry — **Files:** `App.tsx`
 
 ### Locked-tiles touch
 
-- Frozen cells use `Pressable`; tapping frozen no longer clears adjacent selection
+Frozen cells use `Pressable` — **Files:** `App.tsx`, `useCandyBreak.ts`
 
-**Files:** `App.tsx`, `useCandyBreak.ts`
+## Play styles (current — 12 modes)
 
-## Step 7 — next: Tier B modes (Level 4+ only)
-
-Add after Step 6 so new modes do not bloat early levels.
-
-**Candidates:** `jelly-tiles`, `stone-blocks`, `special-hunt`  
-**Tier C (later):** `color-flood`, `ice-spread`, `mystery`
-
-When adding a Tier B mode:
-
-1. Append to `GAME_SHAPES` + add `POOL_TIER_B` constant in `game.ts`
-2. Include `POOL_TIER_B` in `getActivePool` for level ≥ 4 (or level 5 only — decide at implementation)
-3. Follow per-mode checklist in candy-break rule (`types`, `game.ts`, hook, `App.tsx`, i18n)
-
-## Play styles (current — 10 modes)
-
-| Idx | Style | Goal | Moves | Pool tier |
-|-----|-------|------|-------|-----------|
-| 0 | `classic` | Clear N candies | Limited | Core |
-| 1 | `color-target` | Clear N of `targetColor` | Limited | Core |
-| 2 | `locked-tiles` | Thaw all frozen cells | Limited | Core |
-| 3 | `multiplier-rush` | Score threshold | Limited | Advanced |
-| 4 | `bomb-storm` | Clear N candies | Limited | Core |
-| 5 | `timer-attack` | Clear N candies | Unlimited | Mid |
-| 6 | `order-collect` | Clear N per color in sequence | Limited | Advanced |
-| 7 | `combo-goal` | Reach N cascade steps | Limited | Advanced |
-| 8 | `move-saver` | Clear N candies | Limited | Mid |
-| 9 | `pure-match` | Clear N candies | Limited | Mid |
+| Idx | Style | Goal | Pool | Notes |
+|-----|-------|------|------|-------|
+| 0 | `classic` | Clear N candies | Core | Bomb at 60% moves |
+| 1 | `color-target` | Clear N of target color | Core | Random target |
+| 2 | `locked-tiles` | Thaw all frozen | Core | 2 adjacent hits |
+| 3 | `multiplier-rush` | Score threshold | Advanced | Combo multiplier max 8× |
+| 4 | `bomb-storm` | Clear N candies | Core | Bomb respawns |
+| 5 | `timer-attack` | Clear N candies | Mid | 90s countdown |
+| 6 | `order-collect` | Colors in sequence | Advanced | Red/Blue/Gold queue |
+| 7 | `combo-goal` | N cascade steps | Advanced | Step 2+ only |
+| 8 | `move-saver` | Clear N candies | Mid | Cascade refunds moves |
+| 9 | `pure-match` | Clear N candies | Mid | No specials |
+| 10 | `jelly-tiles` | Clear all jelly | **Tier B** | Match on jelly cell |
+| 11 | `stone-blocks` | Break all stones | **Tier B** | 1 adjacent hit |
 
 ## Testing checklist
 
-### Shipped (verified in prior work)
+### Shipped (prior work)
 
 - [x] Tap ⚡ — lightning stays visible until next stage
 - [x] Goal decrements on swap, not after cascade ends
@@ -167,30 +153,23 @@ When adding a Tier B mode:
 - [x] Language toggle on intro only; persists across sessions
 - [x] ko/en HUD, banners, overlays, instructions
 
-### Shuffle — step 5 (code shipped; manual QA)
+### Shuffle — step 5
 
-- [x] `stageOrder` / `stageSlot` state + derived `shapeIndex`
-- [x] Level advance reshuffles; `restartFromLevelOne` reshuffles
-- [x] Save / resume persists `stageOrder` + `stageSlot`
-- [x] Old saves migrate via `resolveStageFromSave`
-- [ ] Playtest: two new games → Level 1 mode order differs
-- [ ] Playtest: complete level → next level reshuffles
-- [ ] Playtest: save mid-run → resume restores order + slot
+- [x] Code shipped
+- [ ] Playtest: new game order differs; level reshuffle; save/resume
 
-### Active pool — step 6 (code shipped; manual QA)
+### Active pool — step 6
 
-- [x] `getActivePool`, `getStageCountForLevel`, `sampleStageOrder`
-- [x] Pool tier constants in `game.ts`
-- [x] `createNewLevelState` samples from level pool
-- [ ] Playtest: Level 1 — only core modes (4 stages)
-- [ ] Playtest: Level 3 — no advanced modes; 7 stages
-- [ ] Playtest: Level 5 — advanced modes appear; 8–10 stages
-- [ ] Playtest: resume mid-level — same `stageOrder`, same remaining stages
+- [x] Code shipped
+- [ ] Playtest: Level 1 core only; Level 5 full pool; resume
 
 ### Tier B — step 7
 
-- [ ] New mode appears only Level 4+
-- [ ] Stars, goals, save/restore for new mode
+- [x] `jelly-tiles` + `stone-blocks` in `GAME_SHAPES`
+- [x] `POOL_TIER_B`; level 4+ pool includes Tier B
+- [x] Goal tracking, save/restore, HUD, banners, game-over copy (ko/en)
+- [ ] Playtest: Tier B only on Level 4+
+- [ ] Playtest: jelly clears on direct match; stone breaks on adjacent match
 
 ## Out of scope
 
@@ -198,3 +177,4 @@ When adding a Tier B mode:
 - Mode-select / practice screen
 - Goal progress bar animation
 - Score-based mode unlocks
+- Tier C modes
