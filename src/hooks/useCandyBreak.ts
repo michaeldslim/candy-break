@@ -8,15 +8,18 @@ import {
   GAME_CONFIG,
   GAME_SHAPES,
   LOCKED_TILES_FREEZE_RATIO,
+  JELLY_TILES_RATIO,
   POOL_TIER_ADVANCED,
+  POOL_TIER_B,
   POOL_TIER_CORE,
   POOL_TIER_MID,
+  STONE_BLOCKS_RATIO,
   MOVE_SAVER_REFUND_CAP,
   ORDER_COLLECT_BASE_PER_COLOR,
   ORDER_COLLECT_COLORS,
   TIMER_ATTACK_SECONDS,
 } from '../constants/game';
-import { IBoard, IFrozenCell, IOrderStep, IPosition, PlayStyle } from '../types';
+import { IBoard, IFrozenCell, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
 import {
   areAdjacent,
   createInitialBoard,
@@ -42,6 +45,8 @@ interface ISavedGame {
   orderSteps?: IOrderStep[];
   orderStepIndex?: number;
   frozenCells?: IFrozenCell[];
+  jellyCells?: IJellyCell[];
+  stoneCells?: IStoneCell[];
   timerSecondsLeft?: number | null;
   comboMultiplier?: number;
   bombRespawnsLeft?: number;
@@ -73,6 +78,8 @@ interface IUseCandyBreakResult {
   orderSteps: IOrderStep[];
   orderStepIndex: number;
   frozenCells: IFrozenCell[];
+  jellyCells: IJellyCell[];
+  stoneCells: IStoneCell[];
   comboMultiplier: number;
   timerSecondsLeft: number | null;
   moveSaverRefundsUsed: number;
@@ -89,7 +96,7 @@ const MAX_LEVEL = 5;
 const MATCH_ANIMATION_MS = 220;
 const DROP_PAUSE_MS = 140;
 // entries matching GAME_SHAPES indices
-const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12, 48, 42];
+const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12, 48, 42, 50, 45];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
 
@@ -130,10 +137,13 @@ const getActivePool = (level: number): number[] => {
   if (level <= 2) {
     return [...POOL_TIER_CORE];
   }
-  if (level <= 4) {
+  if (level <= 3) {
     return [...POOL_TIER_CORE, ...POOL_TIER_MID];
   }
-  return [...POOL_TIER_CORE, ...POOL_TIER_MID, ...POOL_TIER_ADVANCED];
+  if (level === 4) {
+    return [...POOL_TIER_CORE, ...POOL_TIER_MID, ...POOL_TIER_B];
+  }
+  return [...POOL_TIER_CORE, ...POOL_TIER_MID, ...POOL_TIER_ADVANCED, ...POOL_TIER_B];
 };
 
 const getStageCountForLevel = (level: number): number => {
@@ -149,6 +159,24 @@ const getStageCountForLevel = (level: number): number => {
 const sampleStageOrder = (pool: number[], count: number): number[] => {
   const shuffled = shuffleIndices(pool);
   return shuffled.slice(0, Math.min(count, shuffled.length));
+};
+
+const pickRandomCellPositions = (count: number): IPosition[] => {
+  const rows = GAME_CONFIG.rows;
+  const cols = GAME_CONFIG.cols;
+  const allPositions: IPosition[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      allPositions.push({ row, col });
+    }
+  }
+  for (let i = allPositions.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = allPositions[i]!;
+    allPositions[i] = allPositions[j]!;
+    allPositions[j] = tmp;
+  }
+  return allPositions.slice(0, count);
 };
 
 const createOrderSteps = (level: number): IOrderStep[] => {
@@ -172,6 +200,12 @@ const getGoalForStage = (shapeIndex: number, level: number): number => {
   if (shape?.playStyle === 'locked-tiles') {
     return Math.floor(GAME_CONFIG.rows * GAME_CONFIG.cols * LOCKED_TILES_FREEZE_RATIO);
   }
+  if (shape?.playStyle === 'jelly-tiles') {
+    return Math.floor(GAME_CONFIG.rows * GAME_CONFIG.cols * JELLY_TILES_RATIO);
+  }
+  if (shape?.playStyle === 'stone-blocks') {
+    return Math.floor(GAME_CONFIG.rows * GAME_CONFIG.cols * STONE_BLOCKS_RATIO);
+  }
   if (shape?.playStyle === 'order-collect') {
     return createOrderSteps(level)[0]?.count ?? ORDER_COLLECT_BASE_PER_COLOR;
   }
@@ -183,9 +217,14 @@ const getGoalForStage = (shapeIndex: number, level: number): number => {
   return Math.round(baseGoal * multiplier);
 };
 
-interface IGoalProgressResult {
-  goalRemaining: number;
+interface IObstacleState {
   frozenCells: IFrozenCell[];
+  jellyCells: IJellyCell[];
+  stoneCells: IStoneCell[];
+}
+
+interface IGoalProgressResult extends IObstacleState {
+  goalRemaining: number;
   orderStepIndex?: number;
   targetColor?: string | null;
 }
@@ -200,12 +239,21 @@ const computeGoalAfterSteps = (
   style: PlayStyle,
   currentGoalRemaining: number,
   currentTargetColor: string | null,
-  currentFrozenCells: IFrozenCell[],
+  obstacles: IObstacleState,
   options?: IGoalProgressOptions,
 ): IGoalProgressResult => {
+  const passThrough = (): IGoalProgressResult => ({
+    goalRemaining: currentGoalRemaining,
+    ...obstacles,
+  });
+
   const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
   const clearedByColor: Record<string, number> = {};
+  const clearedSet = new Set<string>();
   for (const step of steps) {
+    for (const p of step.matchedPositions) {
+      clearedSet.add(`${p.row}:${p.col}`);
+    }
     for (const [color, count] of Object.entries(step.matchedByColor)) {
       clearedByColor[color] = (clearedByColor[color] ?? 0) + count;
     }
@@ -215,7 +263,7 @@ const computeGoalAfterSteps = (
     const colorCleared = clearedByColor[currentTargetColor] ?? 0;
     return {
       goalRemaining: Math.max(0, currentGoalRemaining - colorCleared),
-      frozenCells: currentFrozenCells,
+      ...obstacles,
     };
   }
 
@@ -234,7 +282,7 @@ const computeGoalAfterSteps = (
 
     return {
       goalRemaining: remaining,
-      frozenCells: currentFrozenCells,
+      ...obstacles,
       orderStepIndex: stepIndex,
       targetColor: activeColor,
     };
@@ -244,32 +292,59 @@ const computeGoalAfterSteps = (
     const decrement = options.cascadeStepIndex >= 1 ? 1 : 0;
     return {
       goalRemaining: Math.max(0, currentGoalRemaining - decrement),
-      frozenCells: currentFrozenCells,
+      ...obstacles,
     };
   }
 
-  if (style === 'locked-tiles' && currentFrozenCells.length > 0) {
-    const clearedSet = new Set<string>();
-    for (const step of steps) {
-      for (const p of step.matchedPositions) {
-        clearedSet.add(`${p.row}:${p.col}`);
-      }
-    }
-    const nextFrozen = currentFrozenCells.map(fc => {
+  if (style === 'locked-tiles' && obstacles.frozenCells.length > 0) {
+    const nextFrozen = obstacles.frozenCells.map((fc) => {
       if (fc.hitsRemaining <= 0) return fc;
       const adjacents = getAdjacentPositions(fc.row, fc.col, GAME_CONFIG.rows, GAME_CONFIG.cols);
-      const wasHit = adjacents.some(a => clearedSet.has(`${a.row}:${a.col}`));
+      const wasHit = adjacents.some((a) => clearedSet.has(`${a.row}:${a.col}`));
       return wasHit ? { ...fc, hitsRemaining: fc.hitsRemaining - 1 } : fc;
     });
     return {
-      goalRemaining: nextFrozen.filter(fc => fc.hitsRemaining > 0).length,
+      goalRemaining: nextFrozen.filter((fc) => fc.hitsRemaining > 0).length,
       frozenCells: nextFrozen,
+      jellyCells: obstacles.jellyCells,
+      stoneCells: obstacles.stoneCells,
     };
+  }
+
+  if (style === 'jelly-tiles' && obstacles.jellyCells.length > 0) {
+    const nextJelly = obstacles.jellyCells.filter(
+      (cell) => !clearedSet.has(`${cell.row}:${cell.col}`),
+    );
+    return {
+      goalRemaining: nextJelly.length,
+      frozenCells: obstacles.frozenCells,
+      jellyCells: nextJelly,
+      stoneCells: obstacles.stoneCells,
+    };
+  }
+
+  if (style === 'stone-blocks' && obstacles.stoneCells.length > 0) {
+    const nextStone = obstacles.stoneCells.map((cell) => {
+      if (cell.hitsRemaining <= 0) return cell;
+      const adjacents = getAdjacentPositions(cell.row, cell.col, GAME_CONFIG.rows, GAME_CONFIG.cols);
+      const wasHit = adjacents.some((a) => clearedSet.has(`${a.row}:${a.col}`));
+      return wasHit ? { ...cell, hitsRemaining: cell.hitsRemaining - 1 } : cell;
+    });
+    return {
+      goalRemaining: nextStone.filter((cell) => cell.hitsRemaining > 0).length,
+      frozenCells: obstacles.frozenCells,
+      jellyCells: obstacles.jellyCells,
+      stoneCells: nextStone,
+    };
+  }
+
+  if (style === 'jelly-tiles' || style === 'stone-blocks' || style === 'locked-tiles') {
+    return passThrough();
   }
 
   return {
     goalRemaining: Math.max(0, currentGoalRemaining - totalCleared),
-    frozenCells: currentFrozenCells,
+    ...obstacles,
   };
 };
 
@@ -280,6 +355,8 @@ interface IStageInit {
   orderSteps: IOrderStep[];
   orderStepIndex: number;
   frozenCells: IFrozenCell[];
+  jellyCells: IJellyCell[];
+  stoneCells: IStoneCell[];
   timerSecondsLeft: number | null;
   bombRespawnsLeft: number;
   moveSaverRefundsUsed: number;
@@ -298,6 +375,8 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
   let orderSteps: IOrderStep[] = [];
   let orderStepIndex = 0;
   let frozenCells: IFrozenCell[] = [];
+  let jellyCells: IJellyCell[] = [];
+  let stoneCells: IStoneCell[] = [];
   let timerSecondsLeft: number | null = null;
   let bombRespawnsLeft = 0;
 
@@ -315,6 +394,8 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
       orderSteps,
       orderStepIndex,
       frozenCells,
+      jellyCells,
+      stoneCells,
       timerSecondsLeft,
       bombRespawnsLeft,
       moveSaverRefundsUsed: 0,
@@ -322,23 +403,17 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
       goal: orderSteps[0]?.count ?? goal,
     };
   } else if (playStyle === 'locked-tiles') {
-    const rows = GAME_CONFIG.rows;
-    const cols = GAME_CONFIG.cols;
-    const frozenCount = goal; // goal = frozen cell count for this mode
-    const allPositions: IPosition[] = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        allPositions.push({ row: r, col: c });
-      }
-    }
-    // Fisher-Yates shuffle
-    for (let i = allPositions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = allPositions[i]!;
-      allPositions[i] = allPositions[j]!;
-      allPositions[j] = tmp;
-    }
-    frozenCells = allPositions.slice(0, frozenCount).map(p => ({ ...p, hitsRemaining: 2 }));
+    frozenCells = pickRandomCellPositions(goal).map((position) => ({
+      ...position,
+      hitsRemaining: 2,
+    }));
+  } else if (playStyle === 'jelly-tiles') {
+    jellyCells = pickRandomCellPositions(goal);
+  } else if (playStyle === 'stone-blocks') {
+    stoneCells = pickRandomCellPositions(goal).map((position) => ({
+      ...position,
+      hitsRemaining: 1,
+    }));
   } else if (playStyle === 'timer-attack') {
     timerSecondsLeft = shape.timerSeconds ?? TIMER_ATTACK_SECONDS;
   } else if (playStyle === 'bomb-storm') {
@@ -352,6 +427,8 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
     orderSteps,
     orderStepIndex,
     frozenCells,
+    jellyCells,
+    stoneCells,
     timerSecondsLeft,
     bombRespawnsLeft,
     moveSaverRefundsUsed: 0,
@@ -421,6 +498,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [orderSteps, setOrderSteps] = useState<IOrderStep[]>([]);
   const [orderStepIndex, setOrderStepIndex] = useState(0);
   const [frozenCells, setFrozenCells] = useState<IFrozenCell[]>([]);
+  const [jellyCells, setJellyCells] = useState<IJellyCell[]>([]);
+  const [stoneCells, setStoneCells] = useState<IStoneCell[]>([]);
   const [comboMultiplier, setComboMultiplier] = useState(1);
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(null);
   const [bombRespawnsLeft, setBombRespawnsLeft] = useState(0);
@@ -505,6 +584,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setOrderSteps(init.orderSteps);
     setOrderStepIndex(init.orderStepIndex);
     setFrozenCells(init.frozenCells);
+    setJellyCells(init.jellyCells);
+    setStoneCells(init.stoneCells);
     setTimerSecondsLeft(init.timerSecondsLeft);
     setBombRespawnsLeft(init.bombRespawnsLeft);
     setMoveSaverRefundsUsed(init.moveSaverRefundsUsed);
@@ -527,15 +608,16 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         return;
       }
 
-      // Locked-tiles: frozen cells cannot be selected or swapped; ignore taps on them
-      if (playStyle === 'locked-tiles') {
-        const isFrozenAt = (r: number, c: number) =>
-          frozenCells.some(f => f.row === r && f.col === c && f.hitsRemaining > 0);
+      // Locked-tiles / stone-blocks: blocked cells cannot be selected or swapped
+      if (playStyle === 'locked-tiles' || playStyle === 'stone-blocks') {
+        const blockedCells = playStyle === 'locked-tiles' ? frozenCells : stoneCells;
+        const isBlockedAt = (r: number, c: number) =>
+          blockedCells.some((cell) => cell.row === r && cell.col === c && cell.hitsRemaining > 0);
 
-        if (isFrozenAt(row, col)) {
+        if (isBlockedAt(row, col)) {
           return;
         }
-        if (selectedCell && isFrozenAt(selectedCell.row, selectedCell.col)) {
+        if (selectedCell && isBlockedAt(selectedCell.row, selectedCell.col)) {
           setSelectedCell(null);
           return;
         }
@@ -662,7 +744,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         : Math.max(0, movesLeft - 1);
 
       let runningGoalRemaining = goalRemaining;
-      let runningFrozenCells = frozenCells;
+      let runningObstacles: IObstacleState = { frozenCells, jellyCells, stoneCells };
       let runningOrderStepIndex = orderStepIndex;
       let runningTargetColor = targetColor;
 
@@ -672,7 +754,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           playStyle,
           runningGoalRemaining,
           runningTargetColor,
-          runningFrozenCells,
+          runningObstacles,
           {
             orderContext: playStyle === 'order-collect'
               ? { orderSteps, orderStepIndex: runningOrderStepIndex }
@@ -681,7 +763,11 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           },
         );
         runningGoalRemaining = result.goalRemaining;
-        runningFrozenCells = result.frozenCells;
+        runningObstacles = {
+          frozenCells: result.frozenCells,
+          jellyCells: result.jellyCells,
+          stoneCells: result.stoneCells,
+        };
         if (result.orderStepIndex !== undefined) {
           runningOrderStepIndex = result.orderStepIndex;
         }
@@ -690,7 +776,13 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         }
         setGoalRemaining(runningGoalRemaining);
         if (playStyle === 'locked-tiles') {
-          setFrozenCells(runningFrozenCells);
+          setFrozenCells(runningObstacles.frozenCells);
+        }
+        if (playStyle === 'jelly-tiles') {
+          setJellyCells(runningObstacles.jellyCells);
+        }
+        if (playStyle === 'stone-blocks') {
+          setStoneCells(runningObstacles.stoneCells);
         }
         if (playStyle === 'order-collect') {
           setOrderStepIndex(runningOrderStepIndex);
@@ -845,7 +937,9 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
             targetColor: playStyle === 'order-collect' ? runningTargetColor : targetColor,
             orderSteps: playStyle === 'order-collect' ? orderSteps : undefined,
             orderStepIndex: playStyle === 'order-collect' ? runningOrderStepIndex : undefined,
-            frozenCells: playStyle === 'locked-tiles' ? runningFrozenCells : undefined,
+            frozenCells: playStyle === 'locked-tiles' ? runningObstacles.frozenCells : undefined,
+            jellyCells: playStyle === 'jelly-tiles' ? runningObstacles.jellyCells : undefined,
+            stoneCells: playStyle === 'stone-blocks' ? runningObstacles.stoneCells : undefined,
             timerSecondsLeft: playStyle === 'timer-attack' ? timerSecondsLeft : undefined,
             comboMultiplier: playStyle === 'multiplier-rush' ? nextComboMultiplier : undefined,
             bombRespawnsLeft: playStyle === 'bomb-storm' ? bombRespawnsLeft : undefined,
@@ -895,6 +989,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       comboMultiplier,
       currentShape,
       frozenCells,
+      jellyCells,
+      stoneCells,
       gameOver,
       goalRemaining,
       isResolving,
@@ -952,6 +1048,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setOrderSteps(saved.orderSteps ?? []);
     setOrderStepIndex(saved.orderStepIndex ?? 0);
     setFrozenCells(saved.frozenCells ?? []);
+    setJellyCells(saved.jellyCells ?? []);
+    setStoneCells(saved.stoneCells ?? []);
     setComboMultiplier(saved.comboMultiplier ?? 1);
     setBombRespawnsLeft(saved.bombRespawnsLeft ?? 0);
     setMoveSaverRefundsUsed(saved.moveSaverRefundsUsed ?? 0);
@@ -1049,6 +1147,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     orderSteps,
     orderStepIndex,
     frozenCells,
+    jellyCells,
+    stoneCells,
     comboMultiplier,
     timerSecondsLeft,
     moveSaverRefundsUsed,

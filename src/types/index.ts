@@ -8,7 +8,9 @@ export type PlayStyle =
   | 'order-collect'
   | 'combo-goal'
   | 'move-saver'
-  | 'pure-match';
+  | 'pure-match'
+  | 'jelly-tiles'
+  | 'stone-blocks';
 
 export interface IOrderStep {
   color: string;
@@ -27,6 +29,12 @@ export interface IPosition {
 
 export interface IFrozenCell extends IPosition {
   hitsRemaining: number; // 2 = needs 2 adjacent matches to thaw; 0 = thawed
+}
+
+export interface IJellyCell extends IPosition {}
+
+export interface IStoneCell extends IPosition {
+  hitsRemaining: number; // 1 = breaks on adjacent match
 }
 
 export interface IPieceCell extends IPosition {

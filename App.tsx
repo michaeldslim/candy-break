@@ -241,6 +241,8 @@ function AppContent() {
     orderSteps,
     orderStepIndex,
     frozenCells,
+    jellyCells,
+    stoneCells,
     comboMultiplier,
     timerSecondsLeft,
     moveSaverRefundsUsed,
@@ -489,6 +491,10 @@ function AppContent() {
         return { label: strings.hud.multi, value: `x${comboMultiplier}`, warn: false };
       case 'locked-tiles':
         return { label: strings.hud.frozen, value: String(frozenCells.filter(fc => fc.hitsRemaining > 0).length), warn: false };
+      case 'jelly-tiles':
+        return { label: strings.hud.jelly, value: String(jellyCells.length), warn: false };
+      case 'stone-blocks':
+        return { label: strings.hud.stones, value: String(stoneCells.filter(sc => sc.hitsRemaining > 0).length), warn: false };
       case 'move-saver':
         return { label: strings.hud.saved, value: `${moveSaverRefundsUsed}/${MOVE_SAVER_REFUND_CAP}`, warn: false };
       default:
@@ -510,6 +516,8 @@ function AppContent() {
     'combo-goal': '🔗',
     'move-saver': '💾',
     'pure-match': '🧩',
+    'jelly-tiles': '🟢',
+    'stone-blocks': '🪨',
   };
 
   const bannerAccents: Record<PlayStyleBannerKey, string> = {
@@ -523,6 +531,8 @@ function AppContent() {
     'combo-goal': '#1a4a6e',
     'move-saver': '#2d6a4f',
     'pure-match': '#4a3728',
+    'jelly-tiles': '#2e5c1e',
+    'stone-blocks': '#4a4a4a',
   };
 
   const getBannerHint = (style: PlayStyleBannerKey): string => {
@@ -619,6 +629,9 @@ function AppContent() {
                   const isPlayable = !!shapeMask[rowIndex]?.[colIndex];
                   const frozenCell = frozenCells.find(fc => fc.row === rowIndex && fc.col === colIndex);
                   const isFrozen = !!(frozenCell && frozenCell.hitsRemaining > 0);
+                  const stoneCell = stoneCells.find(sc => sc.row === rowIndex && sc.col === colIndex);
+                  const isStone = !!(stoneCell && stoneCell.hitsRemaining > 0);
+                  const hasJelly = jellyCells.some(jc => jc.row === rowIndex && jc.col === colIndex);
 
                   if (isBomb) {
                     return (
@@ -646,6 +659,42 @@ function AppContent() {
                           <Text style={{ fontSize: cellSize * 0.42, lineHeight: cellSize * 0.52 }}>⚡</Text>
                         </Pressable>
                       </Animated.View>
+                    );
+                  }
+
+                  if (isStone) {
+                    return (
+                      <Pressable
+                        key={`cell-${rowIndex}-${colIndex}`}
+                        onPress={() => tapCell(rowIndex, colIndex)}
+                        disabled={gameOver || isResolving}
+                        style={{
+                          width: cellSize,
+                          height: cellSize,
+                          borderRadius: 7,
+                          backgroundColor: '#3d3d3d',
+                          borderWidth: 2,
+                          borderColor: '#8a8a8a',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {cell ? (
+                          <Image
+                            source={CANDY_IMAGES[cell.candyBreak]}
+                            style={{ width: cellSize * 0.92, height: cellSize * 0.92, opacity: 0.35 }}
+                            resizeMode="contain"
+                          />
+                        ) : null}
+                        <Text
+                          style={{
+                            position: 'absolute',
+                            fontSize: cellSize * 0.38,
+                          }}
+                        >
+                          🪨
+                        </Text>
+                      </Pressable>
                     );
                   }
 
@@ -722,6 +771,27 @@ function AppContent() {
                       {cell?.special && isPlayable ? (
                         <SpecialOverlay type={cell.special} cellSize={cellSize} />
                       ) : null}
+                      {hasJelly ? (
+                        <View
+                          pointerEvents="none"
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: cellSize,
+                            height: cellSize,
+                            borderRadius: 7,
+                            borderWidth: 3,
+                            borderColor: '#7bed9f',
+                            backgroundColor: 'rgba(123, 237, 159, 0.25)',
+                            alignItems: 'center',
+                            justifyContent: 'flex-end',
+                            paddingBottom: 1,
+                          }}
+                        >
+                          <Text style={{ fontSize: cellSize * 0.22 }}>🟢</Text>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -742,7 +812,11 @@ function AppContent() {
                       ? strings.gameOver.timeOut
                       : playStyle === 'locked-tiles'
                         ? strings.gameOver.frozenRemain
-                        : strings.gameOver.noMoves}
+                        : playStyle === 'jelly-tiles'
+                          ? strings.gameOver.jellyRemain
+                          : playStyle === 'stone-blocks'
+                            ? strings.gameOver.stonesRemain
+                            : strings.gameOver.noMoves}
                 </Text>
               </View>
             </Pressable>

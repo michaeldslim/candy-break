@@ -14,6 +14,8 @@ export const BOMB_SCORE_BONUS = 50;
 
 export const TIMER_ATTACK_SECONDS = 90;
 export const LOCKED_TILES_FREEZE_RATIO = 0.2;  // 20% of cells
+export const JELLY_TILES_RATIO = 0.15;       // 15% of cells
+export const STONE_BLOCKS_RATIO = 0.12;        // 12% of cells
 export const BOMB_STORM_SPAWN_RATIO = 0.3;     // spawn at 30% moves remaining
 export const BOMB_STORM_RESPAWNS = 1;          // 1 respawn = 2 bombs total
 export const ORDER_COLLECT_BASE_PER_COLOR = 12;
@@ -109,6 +111,18 @@ export const GAME_SHAPES: IGameShape[] = [
     mask: FULL_MASK,
     playStyle: 'pure-match',
   },
+  {
+    id: 'jelly-tiles',
+    label: 'Jelly Tiles',
+    mask: FULL_MASK,
+    playStyle: 'jelly-tiles',
+  },
+  {
+    id: 'stone-blocks',
+    label: 'Stone Blocks',
+    mask: FULL_MASK,
+    playStyle: 'stone-blocks',
+  },
 ];
 
 export const COLOR_POOL: ICandyBreak[] = [
@@ -122,3 +136,4 @@ export const COLOR_POOL: ICandyBreak[] = [
 export const POOL_TIER_CORE = [0, 1, 2, 4] as const;
 export const POOL_TIER_MID = [5, 8, 9] as const;
 export const POOL_TIER_ADVANCED = [3, 6, 7] as const;
+export const POOL_TIER_B = [10, 11] as const;

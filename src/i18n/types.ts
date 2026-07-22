@@ -10,7 +10,9 @@ export type PlayStyleBannerKey =
   | 'order-collect'
   | 'combo-goal'
   | 'move-saver'
-  | 'pure-match';
+  | 'pure-match'
+  | 'jelly-tiles'
+  | 'stone-blocks';
 
 export interface IStrings {
   app: {
@@ -27,6 +29,8 @@ export interface IStrings {
     time: string;
     multi: string;
     frozen: string;
+    jelly: string;
+    stones: string;
     saved: string;
     moves: string;
   };
@@ -37,6 +41,8 @@ export interface IStrings {
     noMoves: string;
     timeOut: string;
     frozenRemain: string;
+    jellyRemain: string;
+    stonesRemain: string;
     win: string;
   };
   stageClear: string;
