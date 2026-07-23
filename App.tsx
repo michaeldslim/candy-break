@@ -35,6 +35,13 @@ const CANDY_BAR_HEX: Record<string, string> = {
   Mint: '#6BCB77',
 };
 
+const CANDY_NEON_TINT: Record<string, string> = {
+  Red: 'rgba(255, 90, 95, 0.16)',
+  Blue: 'rgba(77, 150, 255, 0.16)',
+  Gold: 'rgba(255, 217, 61, 0.16)',
+  Mint: 'rgba(107, 203, 119, 0.16)',
+};
+
 type CandyColorName = keyof typeof CANDY_BAR_HEX;
 
 /** Pairs that stay vivid — Red+Blue is excluded (muddy reddish-purple). */
@@ -214,6 +221,89 @@ function FlyingCandy({
         source={CANDY_IMAGES[color]}
         style={{ width: cellSize * 0.94, height: cellSize * 0.94 }}
         resizeMode="contain"
+      />
+    </Animated.View>
+  );
+}
+
+/** Neon placeholder while candy flies to the goal bar — candy-tinted frame + cross lines. */
+function MatchedCellMarker({
+  cellSize,
+  candyColor,
+  progress,
+}: {
+  cellSize: number;
+  candyColor?: string;
+  progress: Animated.Value;
+}) {
+  const neon = CANDY_BAR_HEX[candyColor ?? ''] ?? '#7bed9f';
+  const tint = CANDY_NEON_TINT[candyColor ?? ''] ?? 'rgba(123, 237, 159, 0.14)';
+  const glowOpacity = progress.interpolate({
+    inputRange: [0, 0.12, 0.4, 0.7, 1],
+    outputRange: [1, 0.7, 0.9, 0.55, 0.25],
+  });
+  const lineThickness = Math.max(1.5, cellSize * 0.055);
+  const lineLen = cellSize * 0.64;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: cellSize,
+        height: cellSize,
+        borderRadius: 7,
+        borderWidth: 2,
+        borderColor: neon,
+        backgroundColor: tint,
+        opacity: glowOpacity,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          width: lineLen,
+          height: lineThickness,
+          borderRadius: lineThickness,
+          backgroundColor: neon,
+          opacity: 0.8,
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: lineLen,
+          height: lineThickness,
+          borderRadius: lineThickness,
+          backgroundColor: neon,
+          opacity: 0.8,
+          transform: [{ rotate: '-45deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: lineLen * 0.82,
+          height: lineThickness * 0.65,
+          borderRadius: lineThickness,
+          backgroundColor: neon,
+          opacity: 0.45,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: lineThickness * 0.65,
+          height: lineLen * 0.82,
+          borderRadius: lineThickness,
+          backgroundColor: neon,
+          opacity: 0.45,
+        }}
       />
     </Animated.View>
   );
@@ -974,7 +1064,7 @@ function AppContent() {
                           width: cellSize,
                           height: cellSize,
                           backgroundColor: 'transparent',
-                          borderWidth: selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
+                          borderWidth: isMatched ? 0 : selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? 3 : 1,
                           borderColor:
                             selectedCell?.row === rowIndex && selectedCell?.col === colIndex
                               ? '#fdf0d5'
@@ -990,6 +1080,13 @@ function AppContent() {
                         />
                       ) : null}
                     </Pressable>
+                      {isMatched && isPlayable ? (
+                        <MatchedCellMarker
+                          cellSize={cellSize}
+                          candyColor={cell?.candyBreak}
+                          progress={matchAnim}
+                        />
+                      ) : null}
                       {cell?.special && isPlayable && !isMatched ? (
                         <SpecialOverlay type={cell.special} cellSize={cellSize} />
                       ) : null}
