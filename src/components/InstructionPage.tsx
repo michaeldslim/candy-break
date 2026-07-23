@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   instructionSectionHeading: {
     color: '#ffd166',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   instructionSectionTitleCenter: {
     color: '#ffd166',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     textAlign: 'center',
@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
   },
   instructionItem: {
     color: '#fdf0d5',
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '500',
   },
   startGameButton: {
@@ -128,12 +128,12 @@ const styles = StyleSheet.create({
   },
   continueGameButtonText: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
   },
   startGameButtonText: {
     color: '#fdf0d5',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
   },
   versionText: {
