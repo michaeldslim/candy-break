@@ -19,6 +19,7 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 | 6 | Level-gated `activePool` (subset shuffle per level) | **done** |
 | 7 | Tier B modes — `jelly-tiles`, `stone-blocks` (Level 4+ pool) | **done** |
 | ~~8~~ | ~~Diamond Board (`shape-classic`)~~ | **reverted** |
+| 9 | Matched candies fall into goal bar + per-stage mixed fill color | **done** |
 
 ## Roadmap: expanding play styles
 
@@ -126,6 +127,35 @@ Dim + card; tap to retry — **Files:** `App.tsx`
 
 Frozen cells use `Pressable` — **Files:** `App.tsx`, `useCandyBreak.ts`
 
+### Basket fall-in + goal bar (step 9)
+
+Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style collection into a slim goal bar below the grid.
+
+**Match animation (`FlyingCandy`)**
+- Matched candies render in an absolute overlay above the grid (`flyingCandyLayer`); in-grid candy + special overlay hidden while flying
+- Motion: pop (scale ~1.32×) → gravity fall with delayed horizontal convergence toward bar center → tumble → fade at landing
+- Target: `basketCollectX/Y` = center of bar below grid
+- Bar squashes on landing (`basketBounce` / `basketSquishY`)
+- `MATCH_ANIMATION_MS` = **500** in `App.tsx` and `useCandyBreak.ts` (must stay in sync — hook clears matched cells mid-cascade on this timer)
+
+**Goal bar UI (`CollectionBasket`)**
+- Full-width pill bar only (~28px: `BASKET_BAR_HEIGHT` 20 + frame 4×2); no mouth hole, no label text
+- Gold frame, dark track, animated fill width driven by `goalFillRatio` (`goalProgress / goal`); fill **color** is per-stage mixed candy hue (not fixed gold)
+- **Per-stage fill hue:** `getStageBarFillColor(level, shapeIndex, stageSlot)` — weighted blend of two candy hex colors from curated pairs (Red+Blue excluded to avoid muddy purple); blend ratio 0.28–0.72; stable per stage, changes on advance
+- Candy hex palette: Red `#FF5A5F`, Blue `#4D96FF`, Gold `#FFD93D`, Mint `#6BCB77`
+
+**Layout**
+- `cellSize` uses **original** height formula (no basket reserve) — playboard not shrunk for the slim bar
+- Bar + gap sit in `boardWrapper` bottom padding: `max(ANDROID_BOTTOM_SAFE_INSET, BASKET_GAP + BASKET_TOTAL + 4)`
+- `ANDROID_BOTTOM_SAFE_INSET` = 64px on Android (gesture nav, e.g. Galaxy S25); `IOS_BOTTOM_EXTRA_INSET` = 8px
+
+**Hook exports added:** `shapeIndex`, `stageSlot` (for bar color seed + future UI)
+
+**Files:** `App.tsx`, `src/hooks/useCandyBreak.ts`
+
+**Evolution (this session):** big wooden tray + emoji → slim bar with progress → restore grid size → per-stage mixed fill colors
+
+
 ## Play styles (current — 12 modes)
 
 | Idx | Style | Goal | Pool | Notes |
@@ -171,10 +201,21 @@ Frozen cells use `Pressable` — **Files:** `App.tsx`, `useCandyBreak.ts`
 - [ ] Playtest: Tier B only on Level 4+
 - [ ] Playtest: jelly clears on direct match; stone breaks on adjacent match
 
+### Basket fall-in + goal bar — step 9
+
+- [x] `FlyingCandy` overlay; in-cell candy hidden while matched
+- [x] Slim `CollectionBasket` goal bar below grid (fill = stage progress)
+- [x] Per-stage mixed candy fill color (`getStageBarFillColor`)
+- [x] Playboard `cellSize` not reduced for bar; Android bottom inset for nav bar
+- [x] `MATCH_ANIMATION_MS` synced in `App.tsx` + `useCandyBreak.ts`
+- [ ] Playtest: candies fall into bar on match/cascade; bar fill tracks goal on all play styles
+- [ ] Playtest: fill color changes per stage; bar clears above S25 gesture nav
+
 ## Out of scope
 
 - Board shape / mask variety
 - Mode-select / practice screen
-- Goal progress bar animation
+- HUD goal counter animation (bar fill in `CollectionBasket` is animated)
 - Score-based mode unlocks
 - Tier C modes
+- Custom basket image asset / candy pile-up in bar
