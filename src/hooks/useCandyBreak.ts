@@ -67,6 +67,8 @@ interface IUseCandyBreakResult {
   score: number;
   bestScore: number;
   level: number;
+  shapeIndex: number;
+  stageSlot: number;
   combo: number;
   bombPosition: IPosition | null;
   bombActivating: IPosition | null;
@@ -93,7 +95,7 @@ interface IUseCandyBreakResult {
 const START_LEVEL = 1;
 const SAVE_GAME_KEY = 'savedGame';
 const MAX_LEVEL = 5;
-const MATCH_ANIMATION_MS = 220;
+const MATCH_ANIMATION_MS = 500; // keep in sync with App.tsx's MATCH_ANIMATION_MS (basket fall-in animation)
 const DROP_PAUSE_MS = 140;
 // entries matching GAME_SHAPES indices
 const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12, 48, 42, 50, 45];
@@ -1136,6 +1138,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     score,
     bestScore,
     level,
+    shapeIndex,
+    stageSlot,
     bombPosition,
     bombActivating,
     stageStars,

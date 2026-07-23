@@ -3,6 +3,7 @@ import { Audio } from 'expo-av';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Image,
   Platform,
   Pressable,
@@ -27,14 +28,196 @@ const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
   Mint: require('./assets/images/candy_mint.png'),
 };
 
+const CANDY_BAR_HEX: Record<string, string> = {
+  Red: '#FF5A5F',
+  Blue: '#4D96FF',
+  Gold: '#FFD93D',
+  Mint: '#6BCB77',
+};
+
+type CandyColorName = keyof typeof CANDY_BAR_HEX;
+
+/** Pairs that stay vivid — Red+Blue is excluded (muddy reddish-purple). */
+const CANDY_BAR_BLEND_PAIRS: [CandyColorName, CandyColorName][] = [
+  ['Red', 'Gold'],
+  ['Gold', 'Red'],
+  ['Gold', 'Mint'],
+  ['Mint', 'Gold'],
+  ['Blue', 'Mint'],
+  ['Mint', 'Blue'],
+  ['Red', 'Mint'],
+  ['Mint', 'Red'],
+  ['Blue', 'Gold'],
+  ['Gold', 'Blue'],
+];
+
+function mixHexWeighted(hex1: string, hex2: string, weight2: number): string {
+  const n1 = parseInt(hex1.replace('#', ''), 16);
+  const n2 = parseInt(hex2.replace('#', ''), 16);
+  const t = Math.min(1, Math.max(0, weight2));
+  const w1 = 1 - t;
+  const channel = (shift: number) =>
+    Math.round((((n1 >> shift) & 255) * w1 + ((n2 >> shift) & 255) * t));
+  return `#${[16, 8, 0].map((s) => channel(s).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** One vivid mixed candy hue per stage (deterministic from level + shape + slot). */
+function getStageBarFillColor(level: number, shapeIndex: number, stageSlot: number): string {
+  const seed = level * 7919 + shapeIndex * 104729 + stageSlot * 15485863;
+  const pair = CANDY_BAR_BLEND_PAIRS[Math.abs(seed) % CANDY_BAR_BLEND_PAIRS.length]!;
+  const blend = 0.28 + (Math.abs(seed >> 4) % 45) / 100; // 0.28–0.72 toward second color
+  return mixHexWeighted(CANDY_BAR_HEX[pair[0]], CANDY_BAR_HEX[pair[1]], blend);
+}
+
 const HORIZONTAL_PADDING = 24;
 const BOARD_CONTAINER_PADDING = 12;
 const MAX_CELL_SIZE = 80; // 사실상 캡 제거 (어떤 폰이든 byWidth/byHeight가 자연히 제한)
 const MIN_CELL_SIZE = 22;
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
-const MATCH_ANIMATION_MS = 220;
+const MATCH_ANIMATION_MS = 500;
+const BASKET_BAR_HEIGHT = 20;
+const BASKET_BAR_FRAME = 4;
+const BASKET_TOTAL_HEIGHT = BASKET_BAR_HEIGHT + BASKET_BAR_FRAME * 2;
+const BASKET_WIDTH_GRID_RATIO = 1;
+const BASKET_GAP_BELOW_GRID = 8;
+// Android gesture nav (e.g. Galaxy S25) — RN SafeAreaView does not inset the bottom.
+const ANDROID_BOTTOM_SAFE_INSET = 64;
+const IOS_BOTTOM_EXTRA_INSET = 8;
 
 type SpecialType = 'striped-h' | 'striped-v' | 'rainbow';
+
+type FlyingCandySpec = {
+  key: string;
+  row: number;
+  col: number;
+  color: string;
+  tumbleSign: 1 | -1;
+};
+
+function CollectionBasket({
+  width,
+  height,
+  bounceScale,
+  squishY,
+  fillRatio,
+  fillColor,
+}: {
+  width: number;
+  height: number;
+  bounceScale: Animated.AnimatedInterpolation<number>;
+  squishY: Animated.AnimatedInterpolation<number>;
+  fillRatio: number;
+  fillColor: string;
+}) {
+  const clampedFill = Math.min(1, Math.max(0, fillRatio));
+  const fillAnim = useRef(new Animated.Value(clampedFill)).current;
+
+  useEffect(() => {
+    Animated.timing(fillAnim, {
+      toValue: clampedFill,
+      duration: 320,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [clampedFill, fillAnim]);
+
+  const fillWidth = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.collectionBasket,
+        {
+          width,
+          height,
+          transform: [{ scaleX: bounceScale }, { scaleY: squishY }],
+        },
+      ]}
+    >
+      <View style={styles.collectionBasketFrame}>
+        <View style={styles.collectionBasketProgressTrack}>
+          <Animated.View
+            style={[styles.collectionBasketProgressFill, { width: fillWidth, backgroundColor: fillColor }]}
+          />
+          <View style={styles.collectionBasketProgressShine} />
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+function FlyingCandy({
+  row,
+  col,
+  cellSize,
+  color,
+  progress,
+  mouthX,
+  mouthY,
+  tumbleSign,
+}: {
+  row: number;
+  col: number;
+  cellSize: number;
+  color: string;
+  progress: Animated.Value;
+  mouthX: number;
+  mouthY: number;
+  tumbleSign: 1 | -1;
+}) {
+  const cellCenterX = col * cellSize + cellSize / 2;
+  const cellCenterY = row * cellSize + cellSize / 2;
+  const deltaX = mouthX - cellCenterX;
+  const deltaY = mouthY - cellCenterY;
+
+  const translateX = progress.interpolate({
+    inputRange: [0, 0.15, 0.4, 1],
+    outputRange: [0, deltaX * 0.03, deltaX * 0.28, deltaX],
+  });
+  const translateY = progress.interpolate({
+    inputRange: [0, 0.06, 0.28, 0.62, 1],
+    outputRange: [0, deltaY * 0.08, deltaY * 0.42, deltaY * 0.78, deltaY],
+  });
+  const scale = progress.interpolate({
+    inputRange: [0, 0.08, 0.2, 0.55, 1],
+    outputRange: [1, 1.32, 1.12, 0.88, 0.58],
+  });
+  const opacity = progress.interpolate({
+    inputRange: [0, 0.84, 1],
+    outputRange: [1, 1, 0],
+  });
+  const rotate = progress.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: ['0deg', `${tumbleSign * 18}deg`, `${tumbleSign * 72}deg`],
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: col * cellSize,
+        top: row * cellSize,
+        width: cellSize,
+        height: cellSize,
+        zIndex: 220 + row,
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ translateX }, { translateY }, { scale }, { rotate }],
+        opacity,
+      }}
+    >
+      <Image
+        source={CANDY_IMAGES[color]}
+        style={{ width: cellSize * 0.94, height: cellSize * 0.94 }}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+}
 
 function SpecialOverlay({ type, cellSize }: { type: SpecialType; cellSize: number }) {
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -199,8 +382,6 @@ function SpecialOverlay({ type, cellSize }: { type: SpecialType; cellSize: numbe
   );
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export default function App() {
   return (
     <I18nProvider>
@@ -226,6 +407,8 @@ function AppContent() {
     score,
     bestScore,
     level,
+    shapeIndex,
+    stageSlot,
     combo,
     tapCell,
     restart,
@@ -338,6 +521,9 @@ function AppContent() {
     };
   }, []);
 
+  const bottomSafeInset =
+    Platform.OS === 'android' ? ANDROID_BOTTOM_SAFE_INSET : IOS_BOTTOM_EXTRA_INSET;
+
   const cellSize = useMemo(() => {
     const availableWidth = windowWidth - HORIZONTAL_PADDING - BOARD_CONTAINER_PADDING * 2;
     const availableHeight = Math.max(
@@ -353,7 +539,42 @@ function AppContent() {
   }, [board, hudHeight, windowHeight, windowWidth]);
 
   const goalProgress = Math.max(0, goal - goalRemaining);
+  const goalFillRatio = goal > 0 ? Math.min(1, goalProgress / goal) : 0;
+  const stageBarFillColor = useMemo(
+    () => getStageBarFillColor(level, shapeIndex, stageSlot),
+    [level, shapeIndex, stageSlot],
+  );
   const matchedSet = useMemo(() => new Set(matchedCellKeys), [matchedCellKeys]);
+
+  const boardColumns = board[0]?.length ?? 1;
+  const boardRows = board.length || 1;
+  const gridWidth = boardColumns * cellSize;
+  const gridHeight = boardRows * cellSize;
+  const basketWidth = Math.round(gridWidth * BASKET_WIDTH_GRID_RATIO);
+  const basketHeight = BASKET_TOTAL_HEIGHT;
+  const basketCollectX = gridWidth / 2;
+  const basketCollectY = gridHeight + BASKET_GAP_BELOW_GRID + basketHeight / 2;
+
+  const flyingCandies = useMemo((): FlyingCandySpec[] => {
+    return matchedCellKeys
+      .map((key) => {
+        const [rowStr, colStr] = key.split(':');
+        const row = Number(rowStr);
+        const col = Number(colStr);
+        const cell = board[row]?.[col];
+        if (!cell?.candyBreak) {
+          return null;
+        }
+        return {
+          key,
+          row,
+          col,
+          color: cell.candyBreak,
+          tumbleSign: (row + col) % 2 === 0 ? 1 : -1,
+        };
+      })
+      .filter((item): item is FlyingCandySpec => item !== null);
+  }, [board, matchedCellKeys]);
 
   const bombScale = bombPulseAnim.interpolate({
     inputRange: [0, 1],
@@ -377,19 +598,14 @@ function AppContent() {
     outputRange: [0, -28],
   });
 
-  const matchScale = matchAnim.interpolate({
-    inputRange: [0, 0.25, 1],
-    outputRange: [1, 1.35, 0],
+  const basketBounce = matchAnim.interpolate({
+    inputRange: [0, 0.76, 0.88, 1],
+    outputRange: [1, 1, 1.16, 1],
   });
 
-  const matchOpacity = matchAnim.interpolate({
-    inputRange: [0, 0.35, 1],
-    outputRange: [1, 1, 0],
-  });
-
-  const matchRotate = matchAnim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: ['0deg', '14deg', '-10deg'],
+  const basketSquishY = matchAnim.interpolate({
+    inputRange: [0, 0.76, 0.88, 1],
+    outputRange: [1, 1, 0.9, 1],
   });
 
   useEffect(() => {
@@ -411,6 +627,7 @@ function AppContent() {
     Animated.timing(matchAnim, {
       toValue: 1,
       duration: MATCH_ANIMATION_MS,
+      easing: Easing.bezier(0.2, 0.85, 0.35, 1),
       useNativeDriver: true,
     }).start();
   }, [matchAnim, matchedCellKeys]);
@@ -617,11 +834,23 @@ function AppContent() {
         </View>
       </View>
 
-      <View style={styles.boardWrapper}>
+      <View
+        style={[
+          styles.boardWrapper,
+          {
+            paddingBottom: Math.max(
+              bottomSafeInset,
+              BASKET_GAP_BELOW_GRID + BASKET_TOTAL_HEIGHT + 4,
+            ),
+          },
+        ]}
+      >
         <View style={styles.boardContainer}>
-          {board.map((row, rowIndex) => (
-            <View key={`row-${rowIndex}`} style={styles.boardRow}>
-              {row.map((cell, colIndex) => {
+          <View style={[styles.boardPlayArea, { width: gridWidth }]}>
+            <View style={{ width: gridWidth, height: gridHeight }}>
+              {board.map((row, rowIndex) => (
+                <View key={`row-${rowIndex}`} style={styles.boardRow}>
+                  {row.map((cell, colIndex) => {
                   const isBomb =
                     (!!bombPosition && bombPosition.row === rowIndex && bombPosition.col === colIndex) ||
                     (!!bombActivating && bombActivating.row === rowIndex && bombActivating.col === colIndex);
@@ -736,7 +965,7 @@ function AppContent() {
 
                   return (
                     <View key={`cell-${rowIndex}-${colIndex}`} style={{ width: cellSize, height: cellSize }}>
-                    <AnimatedPressable
+                    <Pressable
                       onPress={() => tapCell(rowIndex, colIndex)}
                       disabled={!isPlayable || gameOver || isResolving}
                       style={[
@@ -750,25 +979,18 @@ function AppContent() {
                             selectedCell?.row === rowIndex && selectedCell?.col === colIndex
                               ? '#fdf0d5'
                               : '#0f1a34',
-                          opacity: 1,
                         },
-                        isMatched
-                          ? {
-                              transform: [{ scale: matchScale }, { rotate: matchRotate }],
-                              opacity: matchOpacity,
-                            }
-                          : null,
                       ]}
                     >
-                      {cell && isPlayable ? (
+                      {cell && isPlayable && !isMatched ? (
                         <Image
                           source={CANDY_IMAGES[cell.candyBreak]}
                           style={{ width: cellSize * 0.92, height: cellSize * 0.92 }}
                           resizeMode="contain"
                         />
                       ) : null}
-                    </AnimatedPressable>
-                      {cell?.special && isPlayable ? (
+                    </Pressable>
+                      {cell?.special && isPlayable && !isMatched ? (
                         <SpecialOverlay type={cell.special} cellSize={cellSize} />
                       ) : null}
                       {hasJelly ? (
@@ -795,8 +1017,42 @@ function AppContent() {
                     </View>
                   );
                 })}
+                </View>
+              ))}
             </View>
-          ))}
+
+            {flyingCandies.length > 0 ? (
+              <View
+                pointerEvents="none"
+                style={[styles.flyingCandyLayer, { width: gridWidth, height: gridHeight + basketHeight + BASKET_GAP_BELOW_GRID }]}
+              >
+                {flyingCandies.map((candy) => (
+                  <FlyingCandy
+                    key={candy.key}
+                    row={candy.row}
+                    col={candy.col}
+                    cellSize={cellSize}
+                    color={candy.color}
+                    progress={matchAnim}
+                    mouthX={basketCollectX}
+                    mouthY={basketCollectY}
+                    tumbleSign={candy.tumbleSign}
+                  />
+                ))}
+              </View>
+            ) : null}
+
+            <View style={{ marginTop: BASKET_GAP_BELOW_GRID, alignItems: 'center' }}>
+              <CollectionBasket
+                width={basketWidth}
+                height={basketHeight}
+                bounceScale={basketBounce}
+                squishY={basketSquishY}
+                fillRatio={goalFillRatio}
+                fillColor={stageBarFillColor}
+              />
+            </View>
+          </View>
 
           {gameOver ? (
             <Pressable
@@ -884,7 +1140,7 @@ const styles = StyleSheet.create({
   boardWrapper: {
     flex: 1,
     alignItems: 'center',
-    paddingBottom: 12,
+    justifyContent: 'flex-start',
   },
   topRow: {
     marginTop: 6,
@@ -975,8 +1231,54 @@ const styles = StyleSheet.create({
     padding: BOARD_CONTAINER_PADDING,
     position: 'relative',
   },
+  boardPlayArea: {
+    position: 'relative',
+    alignSelf: 'center',
+  },
   boardRow: {
     flexDirection: 'row',
+  },
+  flyingCandyLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 180,
+  },
+  collectionBasket: {
+    position: 'relative',
+    zIndex: 160,
+  },
+  collectionBasketFrame: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#e8c547',
+    backgroundColor: '#5c3210',
+    padding: BASKET_BAR_FRAME,
+    justifyContent: 'center',
+  },
+  collectionBasketProgressTrack: {
+    width: '100%',
+    height: BASKET_BAR_HEIGHT,
+    borderRadius: 999,
+    backgroundColor: '#1a0f2e',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  collectionBasketProgressFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 999,
+  },
+  collectionBasketProgressShine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   cell: {
     borderRadius: 7,
