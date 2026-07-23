@@ -905,15 +905,15 @@ function AppContent() {
                   <Text style={styles.stageBannerHint}>  {getBannerHint(style)}</Text>
                 </Text>
                 {playStyle === 'color-target' && targetColor ? (
-                  <Image source={CANDY_IMAGES[targetColor]} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                  <Image source={CANDY_IMAGES[targetColor]} style={{ width: 20, height: 20 }} resizeMode="contain" />
                 ) : null}
                 {playStyle === 'order-collect' && targetColor ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <Image source={CANDY_IMAGES[targetColor]} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                    <Image source={CANDY_IMAGES[targetColor]} style={{ width: 20, height: 20 }} resizeMode="contain" />
                     {orderSteps.slice(orderStepIndex + 1).map((step) => (
                       <View key={step.color} style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={styles.stageBannerHint}>→</Text>
-                        <Image source={CANDY_IMAGES[step.color]} style={{ width: 20, height: 20, opacity: 0.7 }} resizeMode="contain" />
+                        <Image source={CANDY_IMAGES[step.color]} style={{ width: 16, height: 16, opacity: 0.7 }} resizeMode="contain" />
                       </View>
                     ))}
                   </View>
@@ -1227,12 +1227,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b132b',
   },
   headerContainer: {
-    paddingTop: ANDROID_TOP_PADDING + 20,
+    paddingTop: ANDROID_TOP_PADDING + 16,
     paddingHorizontal: 12,
   },
   hudContent: {
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 6,
   },
   boardWrapper: {
     flex: 1,
@@ -1240,7 +1240,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   topRow: {
-    marginTop: 6,
+    marginTop: 4,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
@@ -1248,19 +1248,19 @@ const styles = StyleSheet.create({
   },
   bestValue: {
     color: '#ffd166',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '700',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: '#fdf0d5',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   starsValue: {
     color: '#ffd166',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '700',
   },
   statsRow: {
@@ -1271,51 +1271,51 @@ const styles = StyleSheet.create({
   stageBanner: {
     width: '98%',
     alignSelf: 'center',
-    marginTop: 6,
+    marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     paddingHorizontal: 4,
-    gap: 6,
+    gap: 4,
   },
   stageBannerIcon: {
-    fontSize: 18,
+    fontSize: 14,
   },
   stageBannerLine: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 10,
   },
   stageBannerLabel: {
     color: '#fdf0d5',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   stageBannerHint: {
     color: 'rgba(253,240,213,0.75)',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '400',
   },
   statCard: {
     flex: 1,
-    marginHorizontal: 4,
-    borderRadius: 12,
+    marginHorizontal: 3,
+    borderRadius: 10,
     backgroundColor: '#1c2541',
-    paddingVertical: 6,
+    paddingVertical: 4,
     alignItems: 'center',
   },
   statLabel: {
     color: '#a9bcd0',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   statValue: {
-    marginTop: 2,
+    marginTop: 1,
     color: '#fdf0d5',
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '700',
   },
   statValueWarn: {
