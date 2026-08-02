@@ -163,6 +163,38 @@ const sampleStageOrder = (pool: number[], count: number): number[] => {
   return shuffled.slice(0, Math.min(count, shuffled.length));
 };
 
+const getBombSpawnPosition = (
+  mask: boolean[][],
+  playStyle: PlayStyle,
+  frozenCells: IFrozenCell[],
+  stoneCells: IStoneCell[],
+): IPosition | null => {
+  const excluded: IPosition[] = [];
+  if (playStyle === 'locked-tiles') {
+    for (const fc of frozenCells) {
+      if (fc.hitsRemaining > 0) excluded.push({ row: fc.row, col: fc.col });
+    }
+  } else if (playStyle === 'stone-blocks') {
+    for (const sc of stoneCells) {
+      if (sc.hitsRemaining > 0) excluded.push({ row: sc.row, col: sc.col });
+    }
+  }
+  if (excluded.length === 0) {
+    return getRandomPlayablePosition(mask);
+  }
+  const excludedSet = new Set(excluded.map((p) => `${p.row}:${p.col}`));
+  const playable: IPosition[] = [];
+  for (let row = 0; row < mask.length; row += 1) {
+    for (let col = 0; col < (mask[0]?.length ?? 0); col += 1) {
+      if (isPlayableCell(mask, row, col) && !excludedSet.has(`${row}:${col}`)) {
+        playable.push({ row, col });
+      }
+    }
+  }
+  if (playable.length === 0) return getRandomPlayablePosition(mask);
+  return playable[Math.floor(Math.random() * playable.length)] ?? null;
+};
+
 const pickRandomCellPositions = (count: number): IPosition[] => {
   const rows = GAME_CONFIG.rows;
   const cols = GAME_CONFIG.cols;
@@ -610,22 +642,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         return;
       }
 
-      // Locked-tiles / stone-blocks: blocked cells cannot be selected or swapped
-      if (playStyle === 'locked-tiles' || playStyle === 'stone-blocks') {
-        const blockedCells = playStyle === 'locked-tiles' ? frozenCells : stoneCells;
-        const isBlockedAt = (r: number, c: number) =>
-          blockedCells.some((cell) => cell.row === r && cell.col === c && cell.hitsRemaining > 0);
-
-        if (isBlockedAt(row, col)) {
-          return;
-        }
-        if (selectedCell && isBlockedAt(selectedCell.row, selectedCell.col)) {
-          setSelectedCell(null);
-          return;
-        }
-      }
-
-      // Bomb activation — single tap clears the stage (or respawns for bomb-storm)
+      // Bomb activation — before obstacle blocks so ⚡ works even on frozen/stone cells
       if (bombPosition && bombPosition.row === row && bombPosition.col === col) {
         setIsResolving(true);
         setMatchedCellKeys([`${row}:${col}`]);
@@ -681,6 +698,21 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           applyStageInit(init);
         }, MATCH_ANIMATION_MS);
         return;
+      }
+
+      // Locked-tiles / stone-blocks: blocked cells cannot be selected or swapped
+      if (playStyle === 'locked-tiles' || playStyle === 'stone-blocks') {
+        const blockedCells = playStyle === 'locked-tiles' ? frozenCells : stoneCells;
+        const isBlockedAt = (r: number, c: number) =>
+          blockedCells.some((cell) => cell.row === r && cell.col === c && cell.hitsRemaining > 0);
+
+        if (isBlockedAt(row, col)) {
+          return;
+        }
+        if (selectedCell && isBlockedAt(selectedCell.row, selectedCell.col)) {
+          setSelectedCell(null);
+          return;
+        }
       }
 
       const tapped = { row, col };
@@ -897,7 +929,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         const spawnRatio = playStyle === 'bomb-storm' ? BOMB_STORM_SPAWN_RATIO : 0.6;
         const spawnThreshold = Math.floor(getMovesForLevel(level) * spawnRatio);
         if (playStyle !== 'timer-attack' && bombPosition === null && finalMoves === spawnThreshold && runningGoalRemaining > 0) {
-          setBombPosition(getRandomPlayablePosition(shapeMask));
+          setBombPosition(getBombSpawnPosition(shapeMask, playStyle, runningObstacles.frozenCells, runningObstacles.stoneCells));
         }
 
         const isStageGoalMet = playStyle === 'order-collect'
