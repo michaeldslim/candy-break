@@ -92,6 +92,17 @@ const ko: IStrings = {
     rank: '순위',
     score: '점수',
   },
+  recordCard: {
+    title: '승리!',
+    score: '최종 점수',
+    initialsLabel: '이니셜 (3글자)',
+    initialsPlaceholder: 'ABC',
+    save: '저장',
+    saved: '저장됨!',
+    playAgain: '다시 하기',
+    rank: '순위 #{rank}위!',
+    saveError: '저장에 실패했습니다. 다시 시도해 주세요.',
+  },
 };
 
 const en: IStrings = {
@@ -185,6 +196,17 @@ const en: IStrings = {
     close: 'Close',
     rank: 'Rank',
     score: 'Score',
+  },
+  recordCard: {
+    title: 'You Win!',
+    score: 'Final Score',
+    initialsLabel: 'Initials (3 letters)',
+    initialsPlaceholder: 'ABC',
+    save: 'Save',
+    saved: 'Saved!',
+    playAgain: 'Play Again',
+    rank: 'You placed #{rank}!',
+    saveError: 'Could not save. Please try again.',
   },
 };
 

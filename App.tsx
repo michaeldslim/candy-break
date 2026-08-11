@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
+import RecordCardOverlay from './src/components/RecordCardOverlay';
 import { MOVE_SAVER_REFUND_CAP } from './src/constants/game';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
 import { I18nProvider, useI18n } from './src/i18n/I18nContext';
@@ -1152,16 +1153,17 @@ function AppContent() {
           </View>
 
           {gameOver ? (
-            <Pressable
-              style={styles.gameOverOverlay}
-              onPress={() => (won ? restartFromLevelOne() : restart())}
-            >
-              <View style={styles.gameOverCard}>
-                <Text style={styles.gameOverTitle}>{won ? strings.gameOver.titleWin : strings.gameOver.titleLose}</Text>
-                <Text style={styles.gameOverBody}>
-                  {won
-                    ? strings.gameOver.win
-                    : playStyle === 'timer-attack'
+            won ? (
+              <RecordCardOverlay score={score} onPlayAgain={restartFromLevelOne} />
+            ) : (
+              <Pressable
+                style={styles.gameOverOverlay}
+                onPress={restart}
+              >
+                <View style={styles.gameOverCard}>
+                  <Text style={styles.gameOverTitle}>{strings.gameOver.titleLose}</Text>
+                  <Text style={styles.gameOverBody}>
+                    {playStyle === 'timer-attack'
                       ? strings.gameOver.timeOut
                       : playStyle === 'locked-tiles'
                         ? strings.gameOver.frozenRemain
@@ -1170,9 +1172,10 @@ function AppContent() {
                           : playStyle === 'stone-blocks'
                             ? strings.gameOver.stonesRemain
                             : strings.gameOver.noMoves}
-                </Text>
-              </View>
-            </Pressable>
+                  </Text>
+                </View>
+              </Pressable>
+            )
           ) : null}
 
           {stageStars !== null ? (

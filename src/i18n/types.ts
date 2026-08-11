@@ -62,4 +62,15 @@ export interface IStrings {
     rank: string;
     score: string;
   };
+  recordCard: {
+    title: string;
+    score: string;
+    initialsLabel: string;
+    initialsPlaceholder: string;
+    save: string;
+    saved: string;
+    playAgain: string;
+    rank: string;
+    saveError: string;
+  };
 }

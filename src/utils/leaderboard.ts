@@ -3,6 +3,7 @@ import {
   BEST_SCORE_STORAGE_KEY,
   LEADERBOARD_MAX_ENTRIES,
   LEADERBOARD_STORAGE_KEY,
+  PLAYER_INITIALS_KEY,
 } from '../constants/game';
 import { ILeaderboardEntry } from '../types';
 
@@ -94,4 +95,15 @@ export const saveLeaderboardEntry = async (
   const entries = await persistLeaderboard(merged);
   const resolvedRank = rank > 0 ? rank : entries.findIndex((item) => item.savedAt === entry.savedAt) + 1;
   return { entries, rank: resolvedRank > 0 ? resolvedRank : 1 };
+};
+
+export const loadPlayerInitials = async (): Promise<string> => {
+  const raw = await AsyncStorage.getItem(PLAYER_INITIALS_KEY);
+  return raw ? normalizeInitials(raw) : '';
+};
+
+export const savePlayerInitials = async (initials: string): Promise<void> => {
+  const normalized = normalizeInitials(initials);
+  if (normalized.length === 0) return;
+  await AsyncStorage.setItem(PLAYER_INITIALS_KEY, normalized);
 };
