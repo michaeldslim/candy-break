@@ -157,130 +157,55 @@ Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style coll
 
 **Evolution (this session):** big wooden tray + emoji → slim bar with progress → restore grid size → per-stage mixed fill colors
 
-## Planned: full-win record card + leaderboard (steps 10–11)
+### Entrance leaderboard (step 11)
 
-**Build order:** ship **step 11 (entrance leaderboard)** first — storage + read UI on intro — then **step 10 (record card)** as the write path on full win. Same `leaderboard` AsyncStorage key; entrance can be tested with seeded/dev entries before record card exists.
+**Intro (`InstructionPage.tsx`):** **Leaderboard** button (always visible) between Resume and New Game opens a `Modal` with `LeaderboardView`.
 
-### Terminology
+**`LeaderboardView.tsx`:** scrollable ranked list (rank, initials, score); empty state; optional `highlightRank` (not wired from record card yet).
 
-| Term | Meaning | UI today |
-|------|---------|----------|
-| **Stage** | One play-style board within a level (`stageSlot` → `shapeIndex`) | “Stage Clear!” + stars overlay; auto-advance |
-| **Level** | A sequence of stages (4–10); score carries across levels within a run | HUD level counter; levels 1–4 auto-advance after last stage |
-| **Full win** | Last stage of **level 5** (`MAX_LEVEL`) cleared | `won` + `gameOver`; tap anywhere → `restartFromLevelOne()` |
-| **Run** | Full session from **New Game** (or resume) until full win or game over | — |
-| **Entrance leaderboard** | Ranked list on the intro / instruction screen (before New Game) | Not built — `InstructionPage` has Resume + New Game only |
+**Storage (`src/utils/leaderboard.ts`):**
+- `loadLeaderboard()` — reads `leaderboard` key; migrates from `bestScore` as `{ initials: '---', … }` when empty
+- `saveLeaderboardEntry(initials, score)` — top 10, sorted by score desc then `savedAt` asc
+- `loadPlayerInitials()` / `savePlayerInitials()` — `playerInitials` key for record card default
 
-### Shared storage (both steps)
+**Constants:** `LEADERBOARD_MAX_ENTRIES`, `LEADERBOARD_STORAGE_KEY`, `PLAYER_INITIALS_KEY`, `BEST_SCORE_STORAGE_KEY` in `game.ts`
 
-**Scope:** **local only** (AsyncStorage). No backend / Game Center in this step.
+**i18n:** `leaderboard.*` (ko/en)
 
-**Data model:**
+**Files:** `types/index.ts`, `constants/game.ts`, `utils/leaderboard.ts`, `LeaderboardView.tsx`, `InstructionPage.tsx`, `i18n/*`
 
-```ts
-interface ILeaderboardEntry {
-  initials: string;   // 3 chars A–Z
-  score: number;      // final cumulative score on full win (all 5 levels)
-  savedAt: number;    // Date.now() for tie-break / display
-}
-```
+### Full-win record card (step 10)
 
-**Keys:** `leaderboard` (JSON array), `playerInitials` (last 3-letter default for record card).
+**Trigger:** last stage of **level 5** cleared → `won` + `gameOver` in `useCandyBreak.ts` (`advanceAfterStars` or bomb path). **Not** on levels 1–4 stage clears or on lose.
 
-**Helpers (`src/utils/leaderboard.ts`):**
-- `loadLeaderboard(): Promise<ILeaderboardEntry[]>`
-- `saveLeaderboardEntry(initials, score): Promise<{ entries, rank }>` — insert, sort desc by `score` then `savedAt` asc, truncate to `LEADERBOARD_MAX_ENTRIES` (10)
-- `normalizeInitials(raw): string` — uppercase A–Z, max 3
+**UI (`App.tsx`):** when `gameOver && won`, `RecordCardOverlay` replaces the old tap-to-restart win card. Lose still uses tap-to-retry `Pressable` overlay.
 
-**Capacity:** top **10** entries. All rows are full-win completions (no per-level rows).
+**`RecordCardOverlay.tsx`:** final score, 3-letter initials (`TextInput`, A–Z max 3), **Save** → `saveLeaderboardEntry` + rank message, **Play Again** → `restartFromLevelOne()`. Save optional (can play again without saving).
 
-**Qualification:** save only offered on full win (step 10). Entrance (step 11) is read-only.
+**Sequence:** stage goal met → stars (~1.5s) → record card (fireworks still play on full win).
 
-**Migration:** on first load, if `leaderboard` empty and `bestScore` > 0, seed `{ initials: '---', score: bestScore, savedAt }` — TBD at implementation.
+**i18n:** `recordCard.*` (ko/en)
 
-**Constants:** `LEADERBOARD_MAX_ENTRIES`, `LEADERBOARD_STORAGE_KEY`, `PLAYER_INITIALS_KEY` in `src/constants/game.ts`.
+**Deferred:** “View board” link from record card → `LeaderboardView` with `highlightRank`; HUD `bestScore` vs `leaderboard[0]` unification.
 
-### Step 11 — Entrance leaderboard (build first)
+**Files:** `RecordCardOverlay.tsx`, `App.tsx`, `utils/leaderboard.ts`, `i18n/*`
 
-**Where:** `InstructionPage.tsx` — shown when `App.tsx` `showInstructionPage === true` (title / how-to-play, before game).
+### Dev quick full win (testing aid)
 
-**Intro layout (top → bottom):**
-```
-[ App title + language toggle ]
-[ How to play sections… ]
-[ Resume Last Game ]     ← if hasSavedGame
-[ Leaderboard ]          ← NEW (always visible)
-[ New Game ]
-[ version ]
-```
+**`DEV_QUICK_FULL_WIN`** in `game.ts` — `__DEV__ && false` by default. Flip to `__DEV__ && true` to treat **level 1 stage 1** clear as full win (skips levels 2–5). Gated by `isDevQuickFullWin()` in `useCandyBreak.ts` (bomb path + `advanceAfterStars`). Never active in production builds.
 
-**Behavior:**
-- **Leaderboard** button opens a modal (`Modal` `transparent` `animationType="fade"`) over the intro screen
-- On open: `loadLeaderboard()` → pass to list component
-- **Close** dismisses modal; intro stays underneath (no navigation change)
-- **Empty state** when no entries — encourage playing to full win
+## Architecture (leaderboard)
 
-**Component:** `src/components/LeaderboardView.tsx` — reusable list (also used from record card later)
-- Props: `entries: ILeaderboardEntry[]`, `onClose: () => void`, optional `highlightRank?: number`
-- Rows: rank, initials, formatted score (e.g. `#1  ABC  12,450`)
-- Styling: match intro palette (`#0b132b`, `#1c2541`, `#ffd166`, `#fdf0d5`) — same family as `InstructionPage`
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| Types | `src/types/index.ts` | `ILeaderboardEntry` |
+| Constants | `src/constants/game.ts` | storage keys, `LEADERBOARD_MAX_ENTRIES`, `DEV_QUICK_FULL_WIN` |
+| Logic | `src/utils/leaderboard.ts` | load/save entries, initials, `bestScore` migration |
+| Entrance UI | `InstructionPage.tsx` + `LeaderboardView.tsx` | intro modal, ranked list |
+| Record card | `RecordCardOverlay.tsx` | full-win initials + save |
+| Wiring | `App.tsx` | `won` → record card; lose → game over overlay |
 
-**InstructionPage state:**
-- `showLeaderboard: boolean` — toggles modal
-- `entries` loaded when modal opens (`useEffect` on `showLeaderboard`)
-
-**No hook changes** for step 11 — intro does not use `useCandyBreak`.
-
-**i18n:** `leaderboard.title`, `leaderboard.button`, `leaderboard.empty`, `leaderboard.close`, `leaderboard.rank`, `leaderboard.score`
-
-**Files (step 11 slice):**
-1. `src/types/index.ts` — `ILeaderboardEntry`
-2. `src/constants/game.ts` — keys + `LEADERBOARD_MAX_ENTRIES`
-3. `src/utils/leaderboard.ts` — load (+ save stub OK for tests)
-4. `src/components/LeaderboardView.tsx` — list + empty state
-5. `src/components/InstructionPage.tsx` — button + modal wiring
-6. `src/i18n/types.ts`, `translations.ts` — ko/en
-
-**Commit-sized slices for step 11:**
-1. Types + constants + `leaderboard.ts` (`loadLeaderboard` only)
-2. `LeaderboardView` + i18n strings
-3. `InstructionPage` button + modal
-
-### Step 10 — Full-win record card (build second)
-
-**Trigger rule:** record card appears only on **full win** — last stage of **level 5** cleared — **not** on intermediate stage clears, **not** after levels 1–4, **not** on game over (lose).
-
-**Hook point:** `advanceAfterStars()` when `isLastStage && level >= MAX_LEVEL`. Today that branch sets `won` + `gameOver` immediately. New flow: stars dismiss → **record card** → user saves → play again.
-
-**Levels 1–4:** unchanged — last stage cleared → auto-advance to next level (no record card).
-
-**Layout (card over dim overlay; replaces today’s full-win tap-to-restart card):**
-- Title: full win (`recordCard.title` or `strings.gameOver.titleWin`)
-- **Final run score** (large) — cumulative `score` across all 5 levels
-- **3-letter initials** — A–Z, max 3; pre-fill from `playerInitials`
-- **Save** — `saveLeaderboardEntry(initials, score)` + persist `playerInitials`; show rank (`recordCard.rank`)
-- **Play again** — `restartFromLevelOne()` (allow skip save → play again)
-
-**Sequence:** stage goal met → stars (~1.5s) → stars dismiss → **record card** → Save (rank feedback) → play again
-
-**Hook / state (`useCandyBreak.ts`):**
-- `recordCardPending: boolean` — set when level 5 last stage clears; cleared after dismiss
-- `saveRunToLeaderboard(initials: string): Promise<number>` — delegates to `leaderboard.ts`; returns rank
-- `dismissRecordCard(): void` — `restartFromLevelOne()` or return to intro
-- Gate: do not set `won`/`gameOver` until record card dismissed
-
-**Record card + leaderboard link:** after Save, optional “View board” reuses `LeaderboardView` with `highlightRank`.
-
-**i18n:** `recordCard.title`, `recordCard.score`, `recordCard.initialsLabel`, `recordCard.save`, `recordCard.playAgain`, `recordCard.rank`, `recordCard.viewBoard`
-
-**Files (step 10 slice):**
-1. `src/utils/leaderboard.ts` — complete `saveLeaderboardEntry` + migration from `bestScore`
-2. `src/hooks/useCandyBreak.ts` — full-win gate + save API + `dismissRecordCard`
-3. `src/components/RecordCardOverlay.tsx` — initials + save + play again
-4. `App.tsx` — wire overlay when `recordCardPending`
-5. `src/i18n/types.ts`, `translations.ts` — record card strings
-
-**HUD (optional, later):** keep `bestScore` or derive from `leaderboard[0].score` — avoid two sources of truth after migration.
+**AsyncStorage keys:** `leaderboard`, `playerInitials`, `bestScore` (HUD + migration seed)
 
 ### Testing checklist (steps 10–11)
 
@@ -289,18 +214,19 @@ interface ILeaderboardEntry {
 - [x] Modal opens/closes; intro remains underneath
 - [x] Empty state when no entries
 - [x] `loadLeaderboard` + `bestScore` migration seeds `---` entry when board empty
-- [ ] Playtest: seeded/dev entries render sorted (#1 highest score)
+- [x] Saved entries render sorted (#1 highest score)
 - [x] ko/en strings for leaderboard UI
 
 **Step 10 — record card**
+- [x] Dev quick win: level 1 stage 1 → record card (with `DEV_QUICK_FULL_WIN` enabled)
+- [ ] Production path: last stage of level 5 → record card (full 5-level run)
 - [ ] Intermediate stage clear: stars only; no record card
-- [ ] Last stage of levels 1–4: stars → auto-advance (unchanged); no record card
-- [ ] Last stage of level 5: stars → record card with score + initials + Save
-- [ ] After Save: rank shown; entry appears on entrance leaderboard
-- [ ] Lose on any stage: game over overlay only; **no** record card
-- [ ] Initials: max 3, A–Z only; `playerInitials` persists for next full win
-- [ ] Save inserts entry; list sorted; cap at 10
-- [ ] ko/en strings for record card UI
+- [ ] Last stage of levels 1–4: stars → auto-advance; no record card
+- [x] After Save: rank shown; entry appears on entrance leaderboard
+- [x] Lose on any stage: game over overlay only; no record card
+- [x] Initials: max 3, A–Z only; `playerInitials` persists for next full win
+- [x] Save inserts entry; list sorted; cap at 10
+- [x] ko/en strings for record card UI
 
 ## Play styles (current — 12 modes)
 
@@ -365,5 +291,7 @@ interface ILeaderboardEntry {
 - Score-based mode unlocks
 - Tier C modes
 - Custom basket image asset / candy pile-up in bar
-- Online / Game Center / Play Games leaderboard sync (local AsyncStorage only for steps 10–11)
+- Online / Game Center / Play Games leaderboard sync (local AsyncStorage only)
+- Record card “View board” shortcut from full-win overlay
+- HUD `bestScore` unified with leaderboard top score
 - Initials / record card on stage clear, mid-level advance (levels 1–4), or game over (lose)
