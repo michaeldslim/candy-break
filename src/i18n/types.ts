@@ -54,4 +54,12 @@ export interface IStrings {
     buttonStart: string;
     sections: Array<{ heading: string; items: string[] }>;
   };
+  leaderboard: {
+    title: string;
+    button: string;
+    empty: string;
+    close: string;
+    rank: string;
+    score: string;
+  };
 }

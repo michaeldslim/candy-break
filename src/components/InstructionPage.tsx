@@ -1,8 +1,23 @@
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, Pressable, SafeAreaView, ScrollView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar as RNStatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useI18n } from '../i18n/I18nContext';
+import { ILeaderboardEntry } from '../types';
+import { loadLeaderboard } from '../utils/leaderboard';
 import LanguageToggle from './LanguageToggle';
+import LeaderboardView from './LeaderboardView';
 
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 
@@ -14,7 +29,31 @@ type InstructionPageProps = {
 
 export default function InstructionPage({ onStartGame, onContinueGame, hasSavedGame }: InstructionPageProps) {
   const { strings } = useI18n();
-  const { instruction } = strings;
+  const { instruction, leaderboard } = strings;
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [entries, setEntries] = useState<ILeaderboardEntry[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  useEffect(() => {
+    if (!showLeaderboard) return;
+
+    let cancelled = false;
+    setLoadingLeaderboard(true);
+    loadLeaderboard()
+      .then((loaded) => {
+        if (!cancelled) setEntries(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setEntries([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLeaderboard(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showLeaderboard]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -41,12 +80,33 @@ export default function InstructionPage({ onStartGame, onContinueGame, hasSavedG
               <Text style={styles.continueGameButtonText}>{instruction.buttonResume}</Text>
             </Pressable>
           )}
+          <Pressable style={styles.leaderboardButton} onPress={() => setShowLeaderboard(true)}>
+            <Text style={styles.leaderboardButtonText}>{leaderboard.button}</Text>
+          </Pressable>
           <Pressable style={styles.startGameButton} onPress={onStartGame}>
             <Text style={styles.startGameButtonText}>{instruction.buttonStart}</Text>
           </Pressable>
           <Text style={styles.versionText}>v{Constants.expoConfig?.version}</Text>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showLeaderboard}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLeaderboard(false)}
+      >
+        {loadingLeaderboard ? (
+          <View style={styles.loadingBackdrop}>
+            <ActivityIndicator size="large" color="#ffd166" />
+          </View>
+        ) : (
+          <LeaderboardView
+            entries={entries}
+            onClose={() => setShowLeaderboard(false)}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -108,6 +168,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
   },
+  leaderboardButton: {
+    marginTop: 4,
+    width: '100%',
+    height: 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2a4a6b',
+  },
+  leaderboardButtonText: {
+    color: '#ffd166',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   startGameButton: {
     marginTop: 4,
     width: '100%',
@@ -142,5 +216,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  loadingBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11, 19, 43, 0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

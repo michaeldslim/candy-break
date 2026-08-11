@@ -84,6 +84,14 @@ const ko: IStrings = {
       },
     ],
   },
+  leaderboard: {
+    title: '순위표',
+    button: '순위표',
+    empty: '아직 기록이 없습니다. 레벨 5까지 클리어하면 점수를 남길 수 있어요!',
+    close: '닫기',
+    rank: '순위',
+    score: '점수',
+  },
 };
 
 const en: IStrings = {
@@ -169,6 +177,14 @@ const en: IStrings = {
         ],
       },
     ],
+  },
+  leaderboard: {
+    title: 'Leaderboard',
+    button: 'Leaderboard',
+    empty: 'No scores yet. Clear all 5 levels to post a score!',
+    close: 'Close',
+    rank: 'Rank',
+    score: 'Score',
   },
 };
 
