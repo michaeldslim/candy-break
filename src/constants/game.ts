@@ -22,6 +22,11 @@ export const ORDER_COLLECT_BASE_PER_COLOR = 12;
 export const ORDER_COLLECT_COLORS = ['Red', 'Blue', 'Gold'];
 export const MOVE_SAVER_REFUND_CAP = 3;
 
+export const LEADERBOARD_MAX_ENTRIES = 10;
+export const LEADERBOARD_STORAGE_KEY = 'leaderboard';
+export const PLAYER_INITIALS_KEY = 'playerInitials';
+export const BEST_SCORE_STORAGE_KEY = 'bestScore';
+
 export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () =>
   Array.from({ length: GAME_BASE_COLS }, () => true)
 );

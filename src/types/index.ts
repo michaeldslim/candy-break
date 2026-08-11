@@ -82,3 +82,9 @@ export interface IGameShape {
 
 export type IBoardCell = ICandyBreak | null;
 export type IBoard = IBoardCell[][];
+
+export interface ILeaderboardEntry {
+  initials: string;
+  score: number;
+  savedAt: number;
+}
