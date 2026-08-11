@@ -7,6 +7,7 @@ import {
   COLOR_POOL,
   GAME_CONFIG,
   GAME_SHAPES,
+  isDevQuickFullWin,
   LOCKED_TILES_FREEZE_RATIO,
   JELLY_TILES_RATIO,
   POOL_TIER_ADVANCED,
@@ -673,6 +674,13 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
           }
 
           // Advance to next stage
+          if (isDevQuickFullWin(level, stageSlot)) {
+            setWon(true);
+            setGameOver(true);
+            setIsResolving(false);
+            return;
+          }
+
           const isLastStage = stageSlot >= stageOrder.length - 1;
           if (isLastStage) {
             const isLastLevel = level >= MAX_LEVEL;
@@ -864,6 +872,15 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       const advanceAfterStars = (): void => {
         setStageStars(null);
         const currentScore = score + effectivePoints;
+
+        if (isDevQuickFullWin(level, stageSlot)) {
+          setScore(currentScore);
+          setIsResolving(false);
+          setWon(true);
+          setGameOver(true);
+          return;
+        }
+
         const isLastStage = stageSlot >= stageOrder.length - 1;
         if (isLastStage) {
           const isLastLevel = level >= MAX_LEVEL;

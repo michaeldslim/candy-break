@@ -27,6 +27,12 @@ export const LEADERBOARD_STORAGE_KEY = 'leaderboard';
 export const PLAYER_INITIALS_KEY = 'playerInitials';
 export const BEST_SCORE_STORAGE_KEY = 'bestScore';
 
+/** Flip to `true` when testing full-win / record card / leaderboard. Dev builds only. */
+export const DEV_QUICK_FULL_WIN = __DEV__ && false;
+
+export const isDevQuickFullWin = (level: number, stageSlot: number): boolean =>
+  DEV_QUICK_FULL_WIN && level === 1 && stageSlot === 0;
+
 export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () =>
   Array.from({ length: GAME_BASE_COLS }, () => true)
 );
