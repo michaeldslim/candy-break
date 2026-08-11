@@ -20,7 +20,7 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 | 7 | Tier B modes — `jelly-tiles`, `stone-blocks` (Level 4+ pool) | **done** |
 | ~~8~~ | ~~Diamond Board (`shape-classic`)~~ | **reverted** |
 | 9 | Matched candies fall into goal bar + per-stage mixed fill color | **done** |
-| 10 | Full-win record card — initials + save (level 5 only) | **planned** |
+| 10 | Full-win record card — initials + save (level 5 only) | **done** |
 | 11 | Entrance leaderboard (intro screen, local AsyncStorage) | **done** |
 
 ## Roadmap: expanding play styles
