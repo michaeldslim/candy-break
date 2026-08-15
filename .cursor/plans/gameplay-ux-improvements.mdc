@@ -47,7 +47,7 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 | Save / resume | `ISavedGame` incl. mode-specific fields | `jellyCells`, `stoneCells`, etc. |
 | Stars | `stars_L${level}_S${shapeIndex}` | Keyed by shape, not slot |
 
-**Helpers:** `shuffleIndices`, `getActivePool`, `getStageCountForLevel`, `sampleStageOrder`, `pickRandomCellPositions`, `createNewLevelState`, `resolveStageFromSave`, `computeGoalAfterSteps`
+**Helpers:** `shuffleIndices`, `getActivePool`, `getStageCountForLevel`, `sampleStageOrder`, `pickRandomCellPositions`, `createNewLevelState`, `resolveStageFromSave`, `computeGoalAfterSteps`, `isFullRunComplete`, `MAX_LEVEL`
 
 **Files:** `src/constants/game.ts`, `src/hooks/useCandyBreak.ts`
 
@@ -176,34 +176,52 @@ Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style coll
 
 ### Full-win record card (step 10)
 
-**Trigger:** last stage of **level 5** cleared → `won` + `gameOver` in `useCandyBreak.ts` (`advanceAfterStars` or bomb path). **Not** on levels 1–4 stage clears or on lose.
+**Full run complete:** last stage of **level 5** cleared → `triggerFullWin()` sets `won` + `gameOver` (`advanceAfterStars` or bomb path). Gated by `isFullRunComplete(level, stageSlot, stageOrder.length)` in `game.ts`. **Not** on levels 1–4 stage clears or on lose.
 
-**UI (`App.tsx`):** when `gameOver && won`, `RecordCardOverlay` replaces the old tap-to-restart win card. Lose still uses tap-to-retry `Pressable` overlay.
+**New-record gate (`isNewRunRecord`):**
+- At run start (`New Game` / `Continue`), snapshot `runStartBestScoreRef` = current HUD `bestScore`
+- On full win: `isNewRunRecord = finalScore > runStartBestScoreRef` (compare to **run-start** best, not live HUD — mid-run `bestScore` bumps would otherwise make `score === bestScore` at the end)
 
-**`RecordCardOverlay.tsx`:** final score, 3-letter initials (`TextInput`, A–Z max 3), **Save** → `saveLeaderboardEntry` + rank message, **Play Again** → `restartFromLevelOne()`. Save optional (can play again without saving).
+| Full win | `isNewRunRecord` | UI |
+|----------|------------------|-----|
+| Yes | `true` (beat run-start best) | `RecordCardOverlay` at `SafeAreaView` root (`zIndex` 1000) |
+| Yes | `false` (did not beat run-start best) | Full-screen tap overlay: `gameOver.titleWin` + `gameOver.win` → `restartFromLevelOne()` |
+| Lose | — | `gameOver.titleLose` + mode-specific body; tap → `restart()` (retry stage) |
 
-**Sequence:** stage goal met → stars (~1.5s) → record card (fireworks still play on full win).
+**`RecordCardOverlay.tsx`:** `recordCard.title` (not `titleWin`), final score, 3-letter initials, **Save** → `saveLeaderboardEntry` + rank, **Play Again** → `restartFromLevelOne()` (save optional).
 
-**i18n:** `recordCard.*` (ko/en)
+**`restartFromLevelOne()`:** clear `savedGame`, reset score to 0, fresh run from level 1 stage 0 (`createFreshRunState`), re-snapshot `runStartBestScore`, clear `won` / `gameOver` / `isNewRunRecord`. Does **not** return to intro.
 
-**Deferred:** “View board” link from record card → `LeaderboardView` with `highlightRank`; HUD `bestScore` vs `leaderboard[0]` unification.
+**Sequence:** stage goal met → stars (~1.5s) → record card **or** completion overlay; fireworks on any full win (`won && gameOver`).
 
-**Files:** `RecordCardOverlay.tsx`, `App.tsx`, `utils/leaderboard.ts`, `i18n/*`
+**i18n:** `recordCard.*` (card UI); `gameOver.titleWin` + `gameOver.win` (non-record full win only)
 
-### Dev quick full win (testing aid)
+**Deferred:** “View board” from record card → `LeaderboardView` with `highlightRank`; HUD `bestScore` vs `leaderboard[0]` unification.
 
-**`DEV_QUICK_FULL_WIN`** in `game.ts` — `__DEV__ && false` by default. Flip to `__DEV__ && true` to treat **level 1 stage 1** clear as full win (skips levels 2–5). Gated by `isDevQuickFullWin()` in `useCandyBreak.ts` (bomb path + `advanceAfterStars`). Never active in production builds.
+**Files:** `RecordCardOverlay.tsx`, `App.tsx`, `useCandyBreak.ts`, `game.ts` (`isFullRunComplete`, `MAX_LEVEL`), `utils/leaderboard.ts`, `i18n/*`
+
+### Dev full-win flags (testing aids)
+
+Both `__DEV__ && false` by default; never active in production. Wired via `isDevForceFullWin()` → `triggerFullWin()` (bomb + `advanceAfterStars`).
+
+| Flag | Starts at | One clear → full win |
+|------|-----------|------------------------|
+| `DEV_QUICK_FULL_WIN` | Level 1, stage 0 | Yes (skips levels 2–5) |
+| `DEV_SIMULATE_LEVEL5_WIN` | Level 5, **last** stage (`createLevel5LastStageRun` on New Game) | Yes (production path position) |
+
+**Helpers:** `isDevQuickFullWin`, `isDevSimulateLevel5Win`, `isDevForceFullWin`, `isFullRunComplete` in `game.ts`; `createFreshRunState` / `createLevel5LastStageRun` in `useCandyBreak.ts`.
 
 ## Architecture (leaderboard)
 
 | Layer | Path | Responsibility |
 |-------|------|----------------|
 | Types | `src/types/index.ts` | `ILeaderboardEntry` |
-| Constants | `src/constants/game.ts` | storage keys, `LEADERBOARD_MAX_ENTRIES`, `DEV_QUICK_FULL_WIN` |
+| Constants | `src/constants/game.ts` | storage keys, `MAX_LEVEL`, `isFullRunComplete`, dev flags |
 | Logic | `src/utils/leaderboard.ts` | load/save entries, initials, `bestScore` migration |
+| Hook | `useCandyBreak.ts` | `runStartBestScoreRef`, `triggerFullWin`, `isNewRunRecord`, `restartFromLevelOne` |
 | Entrance UI | `InstructionPage.tsx` + `LeaderboardView.tsx` | intro modal, ranked list |
-| Record card | `RecordCardOverlay.tsx` | full-win initials + save |
-| Wiring | `App.tsx` | `won` → record card; lose → game over overlay |
+| Record card | `RecordCardOverlay.tsx` | new-record initials + save |
+| Wiring | `App.tsx` | `won && isNewRunRecord` → record card; `won && !isNewRunRecord` → completion overlay; lose → game over |
 
 **AsyncStorage keys:** `leaderboard`, `playerInitials`, `bestScore` (HUD + migration seed)
 
@@ -218,11 +236,14 @@ Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style coll
 - [x] ko/en strings for leaderboard UI
 
 **Step 10 — record card**
-- [x] Dev quick win: level 1 stage 1 → record card (with `DEV_QUICK_FULL_WIN` enabled)
-- [ ] Production path: last stage of level 5 → record card (full 5-level run)
-- [ ] Intermediate stage clear: stars only; no record card
+- [x] Dev quick win: level 1 stage 1 → record card (`DEV_QUICK_FULL_WIN`)
+- [x] Dev simulate: New Game at level 5 last stage → one clear → full win (`DEV_SIMULATE_LEVEL5_WIN`)
+- [ ] Production path: full 5-level run → record card when `finalScore > runStartBestScore`
+- [ ] Production path: full clear but score ≤ run-start best → `titleWin` + `win` overlay, no record card
+- [ ] Intermediate stage clear: stars only; no record card / no full-win overlay
 - [ ] Last stage of levels 1–4: stars → auto-advance; no record card
 - [x] After Save: rank shown; entry appears on entrance leaderboard
+- [x] Play Again (with or without Save): `restartFromLevelOne`, level 1 new run
 - [x] Lose on any stage: game over overlay only; no record card
 - [x] Initials: max 3, A–Z only; `playerInitials` persists for next full win
 - [x] Save inserts entry; list sorted; cap at 10
@@ -295,3 +316,4 @@ Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style coll
 - Record card “View board” shortcut from full-win overlay
 - HUD `bestScore` unified with leaderboard top score
 - Initials / record card on stage clear, mid-level advance (levels 1–4), or game over (lose)
+- Record card when full clear without beating run-start best (uses completion overlay instead)
