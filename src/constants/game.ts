@@ -30,8 +30,39 @@ export const BEST_SCORE_STORAGE_KEY = 'bestScore';
 /** Flip to `true` when testing full-win / record card / leaderboard. Dev builds only. */
 export const DEV_QUICK_FULL_WIN = __DEV__ && false;
 
+export const MAX_LEVEL = 5;
+
+/** Last stage of level 5 cleared — triggers full-win record card. */
+export const isFullRunComplete = (
+  level: number,
+  stageSlot: number,
+  stageOrderLength: number,
+): boolean =>
+  level >= MAX_LEVEL && stageSlot >= stageOrderLength - 1;
+
 export const isDevQuickFullWin = (level: number, stageSlot: number): boolean =>
   DEV_QUICK_FULL_WIN && level === 1 && stageSlot === 0;
+
+/**
+ * When enabled, new games start on level 5's final stage so one clear triggers full win.
+ * Also forces full win on that clear (same condition as production `isFullRunComplete`).
+ */
+export const DEV_SIMULATE_LEVEL5_WIN = __DEV__ && false;
+
+export const isDevSimulateLevel5Win = (
+  level: number,
+  stageSlot: number,
+  stageOrderLength: number,
+): boolean =>
+  DEV_SIMULATE_LEVEL5_WIN && isFullRunComplete(level, stageSlot, stageOrderLength);
+
+export const isDevForceFullWin = (
+  level: number,
+  stageSlot: number,
+  stageOrderLength: number,
+): boolean =>
+  isDevQuickFullWin(level, stageSlot) ||
+  isDevSimulateLevel5Win(level, stageSlot, stageOrderLength);
 
 export const FULL_MASK: boolean[][] = Array.from({ length: GAME_BASE_ROWS }, () =>
   Array.from({ length: GAME_BASE_COLS }, () => true)

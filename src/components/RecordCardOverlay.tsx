@@ -106,15 +106,12 @@ export default function RecordCardOverlay({ score, onPlayAgain }: RecordCardOver
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(11, 19, 43, 0.82)',
-    borderRadius: 12,
   },
   card: {
     marginHorizontal: 20,

@@ -495,6 +495,7 @@ function AppContent() {
     movesLeft,
     gameOver,
     won,
+    isNewRunRecord,
     score,
     bestScore,
     level,
@@ -1152,30 +1153,26 @@ function AppContent() {
             </View>
           </View>
 
-          {gameOver ? (
-            won ? (
-              <RecordCardOverlay score={score} onPlayAgain={restartFromLevelOne} />
-            ) : (
-              <Pressable
-                style={styles.gameOverOverlay}
-                onPress={restart}
-              >
-                <View style={styles.gameOverCard}>
-                  <Text style={styles.gameOverTitle}>{strings.gameOver.titleLose}</Text>
-                  <Text style={styles.gameOverBody}>
-                    {playStyle === 'timer-attack'
-                      ? strings.gameOver.timeOut
-                      : playStyle === 'locked-tiles'
-                        ? strings.gameOver.frozenRemain
-                        : playStyle === 'jelly-tiles'
-                          ? strings.gameOver.jellyRemain
-                          : playStyle === 'stone-blocks'
-                            ? strings.gameOver.stonesRemain
-                            : strings.gameOver.noMoves}
-                  </Text>
-                </View>
-              </Pressable>
-            )
+          {gameOver && !won ? (
+            <Pressable
+              style={styles.gameOverOverlay}
+              onPress={restart}
+            >
+              <View style={styles.gameOverCard}>
+                <Text style={styles.gameOverTitle}>{strings.gameOver.titleLose}</Text>
+                <Text style={styles.gameOverBody}>
+                  {playStyle === 'timer-attack'
+                    ? strings.gameOver.timeOut
+                    : playStyle === 'locked-tiles'
+                      ? strings.gameOver.frozenRemain
+                      : playStyle === 'jelly-tiles'
+                        ? strings.gameOver.jellyRemain
+                        : playStyle === 'stone-blocks'
+                          ? strings.gameOver.stonesRemain
+                          : strings.gameOver.noMoves}
+                </Text>
+              </View>
+            </Pressable>
           ) : null}
 
           {stageStars !== null ? (
@@ -1220,6 +1217,19 @@ function AppContent() {
         </View>
         <Fireworks visible={showFireworks} />
       </View>
+
+      {gameOver && won && isNewRunRecord ? (
+        <RecordCardOverlay score={score} onPlayAgain={restartFromLevelOne} />
+      ) : null}
+
+      {gameOver && won && !isNewRunRecord ? (
+        <Pressable style={styles.fullScreenWinOverlay} onPress={restartFromLevelOne}>
+          <View style={styles.gameOverCard}>
+            <Text style={styles.gameOverTitle}>{strings.gameOver.titleWin}</Text>
+            <Text style={styles.gameOverBody}>{strings.gameOver.win}</Text>
+          </View>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1396,6 +1406,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(11, 19, 43, 0.82)',
     borderRadius: 12,
+  },
+  fullScreenWinOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 19, 43, 0.82)',
   },
   gameOverCard: {
     marginHorizontal: 20,

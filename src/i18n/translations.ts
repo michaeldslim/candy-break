@@ -36,7 +36,7 @@ const ko: IStrings = {
   },
   gameOver: {
     titleLose: '게임 오버',
-    titleWin: '승리!',
+    titleWin: '축하합니다!',
     noMoves: '이동 횟수가 없습니다. 화면을 터치해 다시 시도하세요.',
     timeOut: '시간이 초과되었습니다. 화면을 터치해 다시 시도하세요.',
     frozenRemain: '얼어붙은 타일이 남았습니다. 화면을 터치해 다시 시도하세요.',
@@ -93,7 +93,7 @@ const ko: IStrings = {
     score: '점수',
   },
   recordCard: {
-    title: '승리!',
+    title: '축하합니다!',
     score: '최종 점수',
     initialsLabel: '이니셜 (3글자)',
     initialsPlaceholder: 'ABC',
