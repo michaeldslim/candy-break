@@ -45,6 +45,26 @@ export const sortLeaderboard = (entries: ILeaderboardEntry[]): ILeaderboardEntry
     return a.savedAt - b.savedAt;
   });
 
+export type LeaderboardRow = ILeaderboardEntry | null;
+
+export const buildLeaderboardRows = (entries: ILeaderboardEntry[]): LeaderboardRow[] => {
+  const sorted = sortLeaderboard(entries).slice(0, LEADERBOARD_MAX_ENTRIES);
+  return Array.from({ length: LEADERBOARD_MAX_ENTRIES }, (_, index) => sorted[index] ?? null);
+};
+
+/** True when score would land in the top-10 list (strictly above 10th place when full). */
+export const qualifiesForLeaderboardScore = (
+  score: number,
+  entries: ILeaderboardEntry[],
+): boolean => {
+  const normalized = Math.max(0, Math.floor(score));
+  if (normalized <= 0) return false;
+  if (entries.length < LEADERBOARD_MAX_ENTRIES) return true;
+  const sorted = sortLeaderboard(entries);
+  const cutoff = sorted[LEADERBOARD_MAX_ENTRIES - 1]?.score ?? 0;
+  return normalized > cutoff;
+};
+
 const persistLeaderboard = async (entries: ILeaderboardEntry[]): Promise<ILeaderboardEntry[]> => {
   const sorted = sortLeaderboard(entries).slice(0, LEADERBOARD_MAX_ENTRIES);
   await AsyncStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(sorted));

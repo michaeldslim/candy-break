@@ -87,7 +87,7 @@ const ko: IStrings = {
   leaderboard: {
     title: '순위표',
     button: '순위표',
-    empty: '아직 기록이 없습니다. 레벨 5까지 클리어하면 점수를 남길 수 있어요!',
+    empty: '아직 기록이 없습니다. 플레이 중 10위 안에 들면 이니셜을 남길 수 있어요!',
     close: '닫기',
     rank: '순위',
     score: '점수',
@@ -192,7 +192,7 @@ const en: IStrings = {
   leaderboard: {
     title: 'Leaderboard',
     button: 'Leaderboard',
-    empty: 'No scores yet. Clear all 5 levels to post a score!',
+    empty: 'No scores yet. Finish in the top 10 during a run to post your initials!',
     close: 'Close',
     rank: 'Rank',
     score: 'Score',

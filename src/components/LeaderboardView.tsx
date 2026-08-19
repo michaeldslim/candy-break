@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useI18n } from '../i18n/I18nContext';
 import { ILeaderboardEntry } from '../types';
+import { buildLeaderboardRows } from '../utils/leaderboard';
 
 type LeaderboardViewProps = {
   entries: ILeaderboardEntry[];
@@ -13,39 +14,55 @@ const formatScore = (score: number): string => score.toLocaleString();
 export default function LeaderboardView({ entries, onClose, highlightRank }: LeaderboardViewProps) {
   const { strings } = useI18n();
   const { leaderboard } = strings;
+  const rows = buildLeaderboardRows(entries);
+  const hasEntries = entries.length > 0;
 
   return (
     <View style={styles.backdrop}>
       <View style={styles.card}>
         <Text style={styles.title}>{leaderboard.title}</Text>
 
-        {entries.length === 0 ? (
+        {!hasEntries ? (
           <Text style={styles.emptyText}>{leaderboard.empty}</Text>
-        ) : (
-          <>
-            <View style={styles.headerRow}>
-              <Text style={[styles.headerCell, styles.rankCol]}>{leaderboard.rank}</Text>
-              <Text style={[styles.headerCell, styles.initialsCol]} />
-              <Text style={[styles.headerCell, styles.scoreCol]}>{leaderboard.score}</Text>
-            </View>
-            <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
-              {entries.map((entry, index) => {
-                const rank = index + 1;
-                const highlighted = highlightRank === rank;
-                return (
-                  <View
-                    key={`${entry.savedAt}-${entry.initials}-${entry.score}`}
-                    style={[styles.row, highlighted ? styles.rowHighlighted : null]}
-                  >
-                    <Text style={[styles.rankText, styles.rankCol]}>#{rank}</Text>
-                    <Text style={[styles.initialsText, styles.initialsCol]}>{entry.initials}</Text>
-                    <Text style={[styles.scoreText, styles.scoreCol]}>{formatScore(entry.score)}</Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </>
-        )}
+        ) : null}
+
+        <View style={styles.headerRow}>
+          <Text style={[styles.headerCell, styles.rankCol]}>{leaderboard.rank}</Text>
+          <Text style={[styles.headerCell, styles.initialsCol]} />
+          <Text style={[styles.headerCell, styles.scoreCol]}>{leaderboard.score}</Text>
+        </View>
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          {rows.map((entry, index) => {
+            const rank = index + 1;
+            const highlighted = highlightRank === rank;
+            return (
+              <View
+                key={entry ? `${entry.savedAt}-${entry.initials}-${entry.score}` : `empty-${rank}`}
+                style={[styles.row, highlighted ? styles.rowHighlighted : null]}
+              >
+                <Text style={[styles.rankText, styles.rankCol]}>#{rank}</Text>
+                <Text
+                  style={[
+                    styles.initialsText,
+                    styles.initialsCol,
+                    !entry ? styles.emptySlotText : null,
+                  ]}
+                >
+                  {entry?.initials ?? '---'}
+                </Text>
+                <Text
+                  style={[
+                    styles.scoreText,
+                    styles.scoreCol,
+                    !entry ? styles.emptySlotText : null,
+                  ]}
+                >
+                  {entry ? formatScore(entry.score) : '—'}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
 
         <Pressable style={styles.closeButton} onPress={onClose}>
           <Text style={styles.closeButtonText}>{leaderboard.close}</Text>
@@ -103,7 +120,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   list: {
-    maxHeight: 280,
+    maxHeight: 360,
+  },
+  emptySlotText: {
+    color: '#5c6b8a',
+    opacity: 0.55,
   },
   row: {
     flexDirection: 'row',

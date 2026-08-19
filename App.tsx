@@ -496,6 +496,7 @@ function AppContent() {
     gameOver,
     won,
     isNewRunRecord,
+    isLeaderboardPending,
     score,
     bestScore,
     level,
@@ -1153,7 +1154,7 @@ function AppContent() {
             </View>
           </View>
 
-          {gameOver && !won ? (
+          {gameOver && !isLeaderboardPending && !won && !isNewRunRecord ? (
             <Pressable
               style={styles.gameOverOverlay}
               onPress={restart}
@@ -1218,11 +1219,11 @@ function AppContent() {
         <Fireworks visible={showFireworks} />
       </View>
 
-      {gameOver && won && isNewRunRecord ? (
+      {gameOver && !isLeaderboardPending && isNewRunRecord ? (
         <RecordCardOverlay score={score} onPlayAgain={restartFromLevelOne} />
       ) : null}
 
-      {gameOver && won && !isNewRunRecord ? (
+      {gameOver && !isLeaderboardPending && won && !isNewRunRecord ? (
         <Pressable style={styles.fullScreenWinOverlay} onPress={restartFromLevelOne}>
           <View style={styles.gameOverCard}>
             <Text style={styles.gameOverTitle}>{strings.gameOver.titleWin}</Text>

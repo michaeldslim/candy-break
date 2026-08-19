@@ -24,6 +24,7 @@ import {
   TIMER_ATTACK_SECONDS,
 } from '../constants/game';
 import { IBoard, IFrozenCell, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
+import { loadLeaderboard, qualifiesForLeaderboardScore } from '../utils/leaderboard';
 import {
   areAdjacent,
   createInitialBoard,
@@ -69,6 +70,7 @@ interface IUseCandyBreakResult {
   gameOver: boolean;
   won: boolean;
   isNewRunRecord: boolean;
+  isLeaderboardPending: boolean;
   score: number;
   bestScore: number;
   level: number;
@@ -539,6 +541,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [goalRemaining, setGoalRemaining] = useState(() => initialLevel.init.goal);
   const [won, setWon] = useState(false);
   const [isNewRunRecord, setIsNewRunRecord] = useState(false);
+  const [isLeaderboardPending, setIsLeaderboardPending] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
   const [bombActivating, setBombActivating] = useState<IPosition | null>(null);
@@ -548,7 +551,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   const [hasSavedGame, setHasSavedGame] = useState(false);
   const savedGameRef = useRef<ISavedGame | null>(null);
   const bestScoreRef = useRef(0);
-  const runStartBestScoreRef = useRef(0);
+  const scoreRef = useRef(0);
 
   // Play-style specific state
   const [playStyle, setPlayStyle] = useState<PlayStyle>('classic');
@@ -568,6 +571,10 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
   useEffect(() => {
     bestScoreRef.current = bestScore;
   }, [bestScore]);
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
 
   useEffect(() => {
     AsyncStorage.getItem('bestScore').then((value) => {
@@ -590,16 +597,24 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     }
   }, [gameOver]);
 
-  const markRunStartBestScore = useCallback((): void => {
-    runStartBestScoreRef.current = bestScoreRef.current;
-  }, []);
-
-  const triggerFullWin = useCallback((finalScore: number): void => {
+  const finishRun = useCallback((finalScore: number, didWin: boolean): void => {
     setScore(finalScore);
-    setIsNewRunRecord(finalScore > runStartBestScoreRef.current);
     setIsResolving(false);
-    setWon(true);
+    setWon(didWin);
+    setIsNewRunRecord(false);
+    setIsLeaderboardPending(true);
     setGameOver(true);
+
+    loadLeaderboard()
+      .then((entries) => {
+        setIsNewRunRecord(qualifiesForLeaderboardScore(finalScore, entries));
+      })
+      .catch(() => {
+        setIsNewRunRecord(false);
+      })
+      .finally(() => {
+        setIsLeaderboardPending(false);
+      });
   }, []);
 
   // Load best stars for current shape+level
@@ -637,9 +652,9 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
-      setGameOver(true);
+      finishRun(scoreRef.current, false);
     }
-  }, [playStyle, timerSecondsLeft, gameOver, won]);
+  }, [finishRun, playStyle, timerSecondsLeft, gameOver, won]);
 
   const currentShape = GAME_SHAPES[shapeIndex] ?? GAME_SHAPES[0];
   const shapeMask = currentShape.mask;
@@ -712,7 +727,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
           // Advance to next stage
           if (isDevForceFullWin(level, stageSlot, stageOrder.length)) {
-            triggerFullWin(finalScore);
+            finishRun(finalScore, true);
             return;
           }
 
@@ -728,7 +743,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
               setScore(finalScore);
               return;
             }
-            triggerFullWin(finalScore);
+            finishRun(finalScore, true);
             return;
           }
 
@@ -908,7 +923,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
         const currentScore = score + effectivePoints;
 
         if (isDevForceFullWin(level, stageSlot, stageOrder.length)) {
-          triggerFullWin(currentScore);
+          finishRun(currentScore, true);
           return;
         }
 
@@ -931,7 +946,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
             );
             return;
           }
-          triggerFullWin(currentScore);
+          finishRun(currentScore, true);
           return;
         }
         const nextSlot = stageSlot + 1;
@@ -1029,7 +1044,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
         setIsResolving(false);
         if (playStyle !== 'timer-attack' && finalMoves === 0) {
-          setGameOver(true);
+          finishRun(score + effectivePoints, false);
         }
       };
 
@@ -1087,7 +1102,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       stageSlot,
       targetColor,
       timerSecondsLeft,
-      triggerFullWin,
+      finishRun,
       won,
     ],
   );
@@ -1103,8 +1118,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-
-    markRunStartBestScore();
 
     const { stageOrder: restoredOrder, stageSlot: restoredSlot, shapeIndex: restoredShapeIndex } =
       resolveStageFromSave(saved);
@@ -1122,6 +1135,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setCombo(0);
     setWon(false);
     setIsNewRunRecord(false);
+    setIsLeaderboardPending(false);
     setGameOver(false);
     setBombPosition(null);
     setBombActivating(null);
@@ -1138,7 +1152,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setMoveSaverRefundsUsed(saved.moveSaverRefundsUsed ?? 0);
     // Always reset timer to full on resume (timer doesn't persist across sessions)
     setTimerSecondsLeft(shape.playStyle === 'timer-attack' ? (shape.timerSeconds ?? TIMER_ATTACK_SECONDS) : null);
-  }, [markRunStartBestScore]);
+  }, []);
 
   const restart = useCallback(() => {
     if (resolveTimerRef.current) {
@@ -1153,6 +1167,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setHasSavedGame(false);
     setWon(false);
     setIsNewRunRecord(false);
+    setIsLeaderboardPending(false);
     setGameOver(false);
     setScore(0);
     const currentShapeIndex = stageOrder[stageSlot] ?? 0;
@@ -1171,7 +1186,6 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     }
     AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
     setHasSavedGame(false);
-    markRunStartBestScore();
     const nextRun = createFreshRunState();
     setLevel(DEV_SIMULATE_LEVEL5_WIN ? MAX_LEVEL : START_LEVEL);
     setStageOrder(nextRun.stageOrder);
@@ -1179,9 +1193,10 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setScore(0);
     setWon(false);
     setIsNewRunRecord(false);
+    setIsLeaderboardPending(false);
     setGameOver(false);
     applyStageInit(nextRun.init);
-  }, [applyStageInit, markRunStartBestScore]);
+  }, [applyStageInit]);
 
   const cycleShape = useCallback(() => {
     if (resolveTimerRef.current) {
@@ -1198,6 +1213,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setScore(0);
     setWon(false);
     setIsNewRunRecord(false);
+    setIsLeaderboardPending(false);
     setGameOver(false);
     applyStageInit(initializeStage(nextShapeIndex, level));
   }, [applyStageInit, level, stageOrder, stageSlot]);
@@ -1221,6 +1237,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     gameOver,
     won,
     isNewRunRecord,
+    isLeaderboardPending,
     score,
     bestScore,
     level,
