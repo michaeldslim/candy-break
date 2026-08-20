@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  BEST_SCORE_STORAGE_KEY,
   LEADERBOARD_MAX_ENTRIES,
   LEADERBOARD_STORAGE_KEY,
   PLAYER_INITIALS_KEY,
@@ -9,6 +8,10 @@ import { ILeaderboardEntry } from '../types';
 
 export const normalizeInitials = (raw: string): string =>
   raw.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+
+/** Only entries the player explicitly saved via the record card count. */
+const isSubmittedEntry = (entry: ILeaderboardEntry): boolean =>
+  normalizeInitials(entry.initials).length > 0;
 
 const isLeaderboardEntry = (value: unknown): value is ILeaderboardEntry => {
   if (!value || typeof value !== 'object') return false;
@@ -30,10 +33,11 @@ const parseLeaderboard = (raw: string | null): ILeaderboardEntry[] => {
     return parsed
       .filter(isLeaderboardEntry)
       .map((entry) => ({
-        initials: normalizeInitials(entry.initials) || '---',
+        initials: normalizeInitials(entry.initials),
         score: Math.max(0, Math.floor(entry.score)),
         savedAt: entry.savedAt,
-      }));
+      }))
+      .filter(isSubmittedEntry);
   } catch {
     return [];
   }
@@ -71,26 +75,34 @@ const persistLeaderboard = async (entries: ILeaderboardEntry[]): Promise<ILeader
   return sorted;
 };
 
-const migrateFromBestScore = async (): Promise<ILeaderboardEntry[]> => {
-  const bestRaw = await AsyncStorage.getItem(BEST_SCORE_STORAGE_KEY);
-  const bestScore = bestRaw ? parseInt(bestRaw, 10) : 0;
-  if (!Number.isFinite(bestScore) || bestScore <= 0) return [];
-
-  const seeded: ILeaderboardEntry = {
-    initials: '---',
-    score: bestScore,
-    savedAt: Date.now(),
-  };
-  return persistLeaderboard([seeded]);
+const hasUnsubmittedStoredRows = (raw: string | null): boolean => {
+  if (!raw) return false;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return true;
+    return parsed.some((item) => {
+      if (!isLeaderboardEntry(item)) return true;
+      return !isSubmittedEntry({
+        initials: normalizeInitials(item.initials),
+        score: Math.max(0, Math.floor(item.score)),
+        savedAt: item.savedAt,
+      });
+    });
+  } catch {
+    return true;
+  }
 };
 
 export const loadLeaderboard = async (): Promise<ILeaderboardEntry[]> => {
   const raw = await AsyncStorage.getItem(LEADERBOARD_STORAGE_KEY);
   const entries = parseLeaderboard(raw);
-  if (entries.length > 0) {
-    return sortLeaderboard(entries).slice(0, LEADERBOARD_MAX_ENTRIES);
+  const sorted = sortLeaderboard(entries).slice(0, LEADERBOARD_MAX_ENTRIES);
+
+  if (hasUnsubmittedStoredRows(raw)) {
+    await persistLeaderboard(sorted);
   }
-  return migrateFromBestScore();
+
+  return sorted;
 };
 
 export const saveLeaderboardEntry = async (
