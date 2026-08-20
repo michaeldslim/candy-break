@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { Audio } from 'expo-av';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -17,10 +17,19 @@ import {
 import Fireworks from './src/components/Fireworks';
 import InstructionPage from './src/components/InstructionPage';
 import RecordCardOverlay from './src/components/RecordCardOverlay';
+import SettingsPage from './src/components/SettingsPage';
+import CareerPage from './src/components/CareerPage';
+import PromotionOverlay from './src/components/PromotionOverlay';
 import { MOVE_SAVER_REFUND_CAP } from './src/constants/game';
+import { careerRankLabel } from './src/career/careerLabels';
+import { useCareer } from './src/career/CareerProvider';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
 import { I18nProvider, useI18n } from './src/i18n/I18nContext';
 import { PlayStyleBannerKey } from './src/i18n/types';
+import { SettingsProvider, useSettings } from './src/settings/SettingsProvider';
+import { CareerProvider } from './src/career/CareerProvider';
+import type { CareerRank } from './src/types/career';
+import type { RunResultInput } from './src/types/career';
 
 const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
   Red:  require('./assets/images/candy_red.png'),
@@ -476,12 +485,111 @@ function SpecialOverlay({ type, cellSize }: { type: SpecialType; cellSize: numbe
 export default function App() {
   return (
     <I18nProvider>
-      <AppContent />
+      <SettingsProvider>
+        <CareerProvider>
+          <AppRoot />
+        </CareerProvider>
+      </SettingsProvider>
     </I18nProvider>
   );
 }
 
-function AppContent() {
+type AppScreen = 'home' | 'game' | 'settings' | 'career';
+
+function AppRoot() {
+  const { strings, format } = useI18n();
+  const { settings } = useSettings();
+  const { recordRunResult } = useCareer();
+  const [screen, setScreen] = useState<AppScreen>('home');
+  const [careerBackTarget, setCareerBackTarget] = useState<'home' | 'settings'>('home');
+  const [promotedRank, setPromotedRank] = useState<CareerRank | null>(null);
+  const [showPromotionOverlay, setShowPromotionOverlay] = useState(false);
+
+  const handleRunResult = useCallback((input: RunResultInput) => {
+    const result = recordRunResult(input);
+    if (result?.promoted) {
+      setPromotedRank(result.promoted);
+      setShowPromotionOverlay(true);
+    }
+  }, [recordRunResult]);
+
+  const game = useCandyBreak({ onRunResult: handleRunResult });
+
+  if (screen === 'settings') {
+    return (
+      <SettingsPage
+        onBack={() => setScreen('home')}
+        onOpenCareer={() => {
+          setCareerBackTarget('settings');
+          setScreen('career');
+        }}
+      />
+    );
+  }
+
+  if (screen === 'career') {
+    return (
+      <CareerPage
+        onBack={() => setScreen(careerBackTarget)}
+        onOpenSettings={() => setScreen('settings')}
+      />
+    );
+  }
+
+  if (screen === 'home') {
+    const startGame = (): void => {
+      game.restartFromLevelOne();
+      setScreen('game');
+    };
+
+    const continueGame = (): void => {
+      game.resumeSavedGame();
+      setScreen('game');
+    };
+
+    return (
+      <InstructionPage
+        onStartGame={startGame}
+        onContinueGame={continueGame}
+        hasSavedGame={game.hasSavedGame}
+        onOpenSettings={() => setScreen('settings')}
+        onOpenCareer={() => {
+          setCareerBackTarget('home');
+          setScreen('career');
+        }}
+      />
+    );
+  }
+
+  const promotionTitle =
+    promotedRank === 'ceo' ? strings.career.ceoReached.title : strings.career.promoted.title;
+  const promotionSubtitle =
+    promotedRank === 'ceo'
+      ? strings.career.ceoReached.subtitle
+      : promotedRank
+        ? format(strings.career.promoted.subtitle, { rank: careerRankLabel(strings, promotedRank) })
+        : '';
+
+  return (
+    <>
+      <AppContent game={game} />
+      <PromotionOverlay
+        visible={showPromotionOverlay}
+        title={promotionTitle}
+        subtitle={promotionSubtitle}
+        isCeo={promotedRank === 'ceo'}
+        playerAvatarId={settings.playerAvatarId}
+        onComplete={() => setShowPromotionOverlay(false)}
+      />
+    </>
+  );
+}
+
+function AppContent({
+  game,
+}: {
+  game: ReturnType<typeof useCandyBreak>;
+}) {
   const { strings, format } = useI18n();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const {
@@ -510,8 +618,6 @@ function AppContent() {
     bombActivating,
     stageStars,
     bestStars,
-    hasSavedGame,
-    resumeSavedGame,
     playStyle,
     targetColor,
     orderSteps,
@@ -522,7 +628,7 @@ function AppContent() {
     comboMultiplier,
     timerSecondsLeft,
     moveSaverRefundsUsed,
-  } = useCandyBreak();
+  } = game;
 
   const [hudHeight, setHudHeight] = useState(0);
 
@@ -536,7 +642,6 @@ function AppContent() {
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevFinalWinRef = useRef(false);
   const [showFireworks, setShowFireworks] = useState(false);
-  const [showInstructionPage, setShowInstructionPage] = useState(true);
 
   // Start/stop bomb pulse loop
   // Blink loop for special tiles handled by SpecialOverlay component
@@ -770,27 +875,6 @@ function AppContent() {
 
     prevFinalWinRef.current = isFinalWin;
   }, [gameOver, won]);
-
-  const startGame = (): void => {
-    restartFromLevelOne();
-    setShowInstructionPage(false);
-  };
-
-  const continueGame = (): void => {
-    resumeSavedGame();
-    setShowInstructionPage(false);
-  };
-
-  if (showInstructionPage) {
-    return (
-      <InstructionPage
-        onStartGame={startGame}
-        onContinueGame={continueGame}
-        hasSavedGame={hasSavedGame}
-      />
-    );
-  }
-
 
   // Dynamic 4th HUD card based on play style
   const fourthCard = (() => {

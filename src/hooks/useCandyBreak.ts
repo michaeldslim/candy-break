@@ -24,6 +24,7 @@ import {
   TIMER_ATTACK_SECONDS,
 } from '../constants/game';
 import { IBoard, IFrozenCell, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
+import type { RunResultInput } from '../types/career';
 import { loadLeaderboard, qualifiesForLeaderboardScore } from '../utils/leaderboard';
 import {
   areAdjacent,
@@ -97,6 +98,10 @@ interface IUseCandyBreakResult {
   restart: () => void;
   restartFromLevelOne: () => void;
   resumeSavedGame: () => void;
+}
+
+interface UseCandyBreakOptions {
+  onRunResult?: (input: RunResultInput) => void;
 }
 
 const START_LEVEL = 1;
@@ -518,7 +523,13 @@ const resolveStageFromSave = (
   return { stageOrder, stageSlot, shapeIndex: stageOrder[stageSlot] ?? saved.shapeIndex };
 };
 
-export const useCandyBreak = (): IUseCandyBreakResult => {
+export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakResult => {
+  const onRunResultRef = useRef(options?.onRunResult);
+  onRunResultRef.current = options?.onRunResult;
+
+  const notifyRunResult = useCallback((input: RunResultInput) => {
+    onRunResultRef.current?.(input);
+  }, []);
   const initialLevelRef = useRef<ILevelRunState | undefined>(undefined);
   if (initialLevelRef.current === undefined) {
     initialLevelRef.current = createFreshRunState();
@@ -605,6 +616,12 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
     setIsLeaderboardPending(true);
     setGameOver(true);
 
+    if (didWin) {
+      notifyRunResult({ won: true, completedLevel: MAX_LEVEL });
+    } else {
+      notifyRunResult({ won: false });
+    }
+
     loadLeaderboard()
       .then((entries) => {
         setIsNewRunRecord(qualifiesForLeaderboardScore(finalScore, entries));
@@ -615,7 +632,7 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
       .finally(() => {
         setIsLeaderboardPending(false);
       });
-  }, []);
+  }, [notifyRunResult]);
 
   // Load best stars for current shape+level
   useEffect(() => {
@@ -733,8 +750,8 @@ export const useCandyBreak = (): IUseCandyBreakResult => {
 
           const isLastStage = stageSlot >= stageOrder.length - 1;
           if (isLastStage) {
-            if (!isFullRunComplete(level, stageSlot, stageOrder.length)) {
-              const nextLevel = level + 1;
+          if (!isFullRunComplete(level, stageSlot, stageOrder.length)) {
+            const nextLevel = level + 1;
               const nextRun = createNewLevelState(nextLevel);
               setLevel(nextLevel);
               setStageOrder(nextRun.stageOrder);
