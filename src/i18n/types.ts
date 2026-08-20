@@ -15,8 +15,58 @@ export type PlayStyleBannerKey =
   | 'stone-blocks';
 
 export interface IStrings {
+  common: {
+    back: string;
+  };
   app: {
     title: string;
+  };
+  home: {
+    career: string;
+  };
+  settings: {
+    title: string;
+    language: string;
+    gameplay: string;
+    playerAvatar: string;
+    playerAvatarDesc: string;
+  };
+  career: {
+    ranks: Record<
+      'intern' | 'staff' | 'assistant' | 'manager' | 'deputy' | 'director' | 'executive' | 'ceo',
+      string
+    >;
+    promoted: { title: string; subtitle: string };
+    ceoReached: { title: string; subtitle: string };
+    progressNext: string;
+    lossKeepsProgress: string;
+    noProgressDifficulty: string;
+    homeBadge: string;
+    maxRank: string;
+    minLevel: string;
+    modeLabel: string;
+    modeDesc: string;
+    winDefinition: string;
+    rulesSnippet: string;
+    screen: {
+      title: string;
+      currentRank: string;
+      highestRank: string;
+      ladderTitle: string;
+      winHint: string;
+      disabledTitle: string;
+      disabledBody: string;
+      enableInSettings: string;
+    };
+    ladder: {
+      achieved: string;
+      current: string;
+      locked: string;
+      startingRank: string;
+      requirement: string;
+      requirementLevel: string;
+      progressToNext: string;
+    };
   };
   hud: {
     stars: string;
@@ -49,7 +99,7 @@ export interface IStrings {
   combo: string;
   colors: Record<string, string>;
   instruction: {
-    title: string;
+    playStylesHeading: string;
     buttonResume: string;
     buttonStart: string;
     sections: Array<{ heading: string; items: string[] }>;

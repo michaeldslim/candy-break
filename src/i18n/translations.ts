@@ -1,8 +1,71 @@
 import { IStrings, Language } from './types';
 
 const ko: IStrings = {
+  common: {
+    back: '← 뒤로',
+  },
   app: {
     title: 'Candy Break',
+  },
+  home: {
+    career: '승진 현황',
+  },
+  settings: {
+    title: '설정',
+    language: '언어',
+    gameplay: '게임플레이',
+    playerAvatar: '내 아바타',
+    playerAvatarDesc: '홈 화면과 승진 현황에 표시됩니다',
+  },
+  career: {
+    ranks: {
+      intern: '인턴',
+      staff: '사원',
+      assistant: '대리',
+      manager: '과장',
+      deputy: '차장',
+      director: '부장',
+      executive: '전무',
+      ceo: '사장',
+    },
+    promoted: {
+      title: '승진합니다!',
+      subtitle: '{rank}(으)로 승진했습니다',
+    },
+    ceoReached: {
+      title: '축하합니다!',
+      subtitle: '사장이 되었습니다',
+    },
+    progressNext: '다음: {nextRank} ({required}승)',
+    lossKeepsProgress: '{rank} · {current}/{required}승 — 진행 유지',
+    noProgressDifficulty: '승진 카운트 없음 — {minLevel} 필요',
+    homeBadge: '{rank} · {current}/{required}',
+    maxRank: '{rank} · 최고 직급',
+    minLevel: '레벨 {level} 이상',
+    modeLabel: '승진 모드',
+    modeDesc: '레벨 5까지 클리어할 때마다 승진 카운트가 올라갑니다',
+    winDefinition: '1승 = 레벨 5까지 풀 클리어',
+    rulesSnippet:
+      '1승은 레벨 5까지 클리어한 것입니다. 인턴→사원 3승 · 사원→대리 5 · 대리→과장 7 · 과장→차장 10 · 차장 이상은 풀 클리어 누적. 패배해도 진행은 유지됩니다.',
+    screen: {
+      title: '승진 현황',
+      currentRank: '현재 직급',
+      highestRank: '최고 달성',
+      ladderTitle: '직급 사다리',
+      winHint: '1승 = 레벨 5까지 풀 클리어',
+      disabledTitle: '승진 모드가 꺼져 있습니다',
+      disabledBody: '설정에서 승진 모드를 켜면 직급과 승진 진행을 추적할 수 있습니다.',
+      enableInSettings: '설정 열기',
+    },
+    ladder: {
+      achieved: '달성',
+      current: '현재',
+      locked: '잠김',
+      startingRank: '시작 직급',
+      requirement: '{wins}승 필요',
+      requirementLevel: '풀 클리어 {wins}승',
+      progressToNext: '{current}/{required}승 → {nextRank}',
+    },
   },
   hud: {
     stars: '별',
@@ -53,7 +116,7 @@ const ko: IStrings = {
     Mint: '민트',
   },
   instruction: {
-    title: '게임 방법',
+    playStylesHeading: '게임 방법',
     buttonResume: '지난 게임 계속하기',
     buttonStart: '새 게임',
     sections: [
@@ -106,8 +169,71 @@ const ko: IStrings = {
 };
 
 const en: IStrings = {
+  common: {
+    back: '← Back',
+  },
   app: {
     title: 'Candy Break',
+  },
+  home: {
+    career: 'Career',
+  },
+  settings: {
+    title: 'Settings',
+    language: 'Language',
+    gameplay: 'Gameplay',
+    playerAvatar: 'Your Avatar',
+    playerAvatarDesc: 'Shown on the home screen and career page',
+  },
+  career: {
+    ranks: {
+      intern: 'Intern',
+      staff: 'Staff',
+      assistant: 'Assistant Manager',
+      manager: 'Manager',
+      deputy: 'Deputy Director',
+      director: 'Director',
+      executive: 'Executive VP',
+      ceo: 'CEO',
+    },
+    promoted: {
+      title: 'Promoted!',
+      subtitle: 'You are now {rank}',
+    },
+    ceoReached: {
+      title: 'Congratulations!',
+      subtitle: 'You are the CEO',
+    },
+    progressNext: 'Next: {nextRank} ({required} wins)',
+    lossKeepsProgress: '{rank} · {current}/{required} wins — still on track',
+    noProgressDifficulty: 'No promotion credit — need {minLevel}',
+    homeBadge: '{rank} · {current}/{required}',
+    maxRank: '{rank} · top rank',
+    minLevel: 'Level {level}+',
+    modeLabel: 'Career mode',
+    modeDesc: 'Each Level 5 clear adds to your promotion count',
+    winDefinition: '1 win = clear through Level 5',
+    rulesSnippet:
+      '1 win means clearing through Level 5. Intern→Staff 3 · Staff→Assistant 5 · Assistant→Manager 7 · Manager→Deputy 10 · Deputy+ needs full clears. Losses do not reset progress.',
+    screen: {
+      title: 'Career',
+      currentRank: 'Current rank',
+      highestRank: 'Highest achieved',
+      ladderTitle: 'Rank ladder',
+      winHint: '1 win = clear through Level 5',
+      disabledTitle: 'Career mode is off',
+      disabledBody: 'Turn on Career mode in Settings to track your rank and promotion progress.',
+      enableInSettings: 'Open Settings',
+    },
+    ladder: {
+      achieved: 'Achieved',
+      current: 'Current',
+      locked: 'Locked',
+      startingRank: 'Starting rank',
+      requirement: '{wins} wins to reach',
+      requirementLevel: '{wins} full clears',
+      progressToNext: '{current}/{required} wins → {nextRank}',
+    },
   },
   hud: {
     stars: 'Stars',
@@ -158,7 +284,7 @@ const en: IStrings = {
     Mint: 'Mint',
   },
   instruction: {
-    title: 'How to Play',
+    playStylesHeading: 'How to Play',
     buttonResume: 'Resume Last Game',
     buttonStart: 'New Game',
     sections: [
