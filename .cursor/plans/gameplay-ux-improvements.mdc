@@ -22,6 +22,11 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 | 9 | Matched candies fall into goal bar + per-stage mixed fill color | **done** |
 | 10 | Record card — initials + save (top-10 gate, any run end) | **done** |
 | 11 | Entrance leaderboard — fixed ranks 1–10 (intro, AsyncStorage) | **done** |
+| 12 | Career mode — intern→CEO promotion on Level 5 full clears | **done** |
+| 13 | Settings page — language, avatar, career toggle, version | **done** |
+| 14 | Main screen UX — gear → settings, collapsible how-to-play | **done** |
+| 15 | Career ladder page + promotion overlay | **done** |
+| 16 | Player avatars — assets + picker (10 portraits) | **done** |
 
 ## Roadmap: expanding play styles
 
@@ -81,11 +86,83 @@ React Native + Expo match-3. All stages use **12×8** (`FULL_MASK`). Mode variet
 
 | Layer | Path | Responsibility |
 |-------|------|----------------|
-| Types | `src/i18n/types.ts` | `Language`, `IStrings`, banner keys |
+| Types | `src/i18n/types.ts` | `Language`, `IStrings`, banner keys, `career.*`, `settings.*`, `common.*` |
 | Strings | `src/i18n/translations.ts` | ko/en copy for all UI text |
 | Format | `src/i18n/format.ts` | `{placeholder}` interpolation |
 | Context | `src/i18n/I18nContext.tsx` | `I18nProvider`, `useI18n`, AsyncStorage `appLanguage` |
-| Toggle | `src/components/LanguageToggle.tsx` | KO/EN switch (intro screen only) |
+| Toggle | `src/components/LanguageToggle.tsx` | KO/EN switch (**settings page**) |
+
+## Architecture (app navigation)
+
+Single-root screen stack in `App.tsx` — no expo-router.
+
+| Screen | Component | Entry |
+|--------|-----------|-------|
+| `home` | `InstructionPage.tsx` | App launch |
+| `game` | `AppContent` | New Game / Continue |
+| `settings` | `SettingsPage.tsx` | Gear icon on home |
+| `career` | `CareerPage.tsx` | Career badge on home, or Settings → 승진 현황 button |
+
+**Back navigation:** `careerBackTarget` remembers whether career was opened from `home` or `settings` so ← returns to the correct screen.
+
+**Providers (outer → inner):** `I18nProvider` → `SettingsProvider` → `CareerProvider` → `AppRoot`
+
+**Hook lifetime:** `useCandyBreak` runs once in `AppRoot`; game state persists across home ↔ settings ↔ career.
+
+## Architecture (career / 승진제)
+
+Adapted from go-stop-game; meta layer on top of run results — **does not touch** match/cascade engine.
+
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| Types | `src/types/career.ts` | `CareerRank`, `CareerState`, `RunResultInput`, `PromotionResult` |
+| Rules | `src/career/careerRules.ts` | Rank ladder, promotion thresholds, `getPromotionTarget` |
+| Progress | `src/career/careerProgress.ts` | `applyRunResult`, `DEFAULT_CAREER_STATE` |
+| Storage | `src/career/careerStorage.ts` | AsyncStorage `careerState` |
+| Labels | `src/career/careerLabels.ts` | Progress copy, ladder status, rank i18n keys |
+| Context | `src/career/CareerProvider.tsx` | `recordRunResult`, `useCareer` |
+| UI | `CareerPage.tsx`, `PromotionOverlay.tsx` | Ladder diagram, promotion celebration |
+
+### Rank ladder (8 tiers)
+
+| Rank | KO | Wins to promote |
+|------|-----|-----------------|
+| intern | 인턴 | 3 |
+| staff | 사원 | 5 |
+| assistant | 대리 | 7 |
+| manager | 과장 | 10 |
+| deputy | 차장 | 5 |
+| director | 부장 | 7 |
+| executive | 전무 | 5 |
+| ceo | 사장 | — (top rank) |
+
+### What counts as 1 win
+
+**1승 = Level 5 full clear** (`finishRun(..., true)` / `isFullRunComplete`).
+
+| Event | Career credit |
+|-------|---------------|
+| Level 5 last stage cleared | **+1 win** toward next rank |
+| Levels 1–4 last stage cleared | Auto-advance only — **no** career credit |
+| Stage game over (moves / timer) | Loss — count **unchanged**, rank **unchanged** |
+| Career mode off | No storage updates |
+
+**Wiring:** `useCandyBreak({ onRunResult })` → `CareerProvider.recordRunResult` → `applyRunResult`. Promotion triggers `PromotionOverlay` in `AppRoot`.
+
+### i18n keys (career)
+
+`career.ranks.*`, `career.winDefinition`, `career.rulesSnippet`, `career.screen.*`, `career.ladder.*`, `career.promoted.*`, `career.ceoReached.*`, `career.homeBadge`, `career.progressNext`, `career.lossKeepsProgress`, `career.modeLabel`, `career.modeDesc`
+
+## Architecture (settings & avatars)
+
+| Layer | Path | Responsibility |
+|-------|------|----------------|
+| Settings | `src/settings/SettingsProvider.tsx` | `playerAvatarId`, `careerModeEnabled`; AsyncStorage `appSettings` |
+| Avatars | `src/constants/avatars.ts` | `AvatarId`, `AVATAR_IMAGES`, 10 PNGs in `assets/avatars/` |
+| Picker | `AvatarPicker.tsx`, `PlayerAvatar.tsx` | Grid select + circular portrait |
+| UI | `SettingsPage.tsx` | Language, avatar, career toggle + rules + career button, version |
+
+**AsyncStorage keys (career/settings):** `careerState`, `appSettings`
 
 ## Shipped fixes
 
@@ -159,7 +236,7 @@ Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style coll
 
 ### Entrance leaderboard (step 11)
 
-**Intro (`InstructionPage.tsx`):** **Leaderboard** button (always visible) between Resume and New Game opens a `Modal` with `LeaderboardView`.
+**Intro (`InstructionPage.tsx`):** **Leaderboard** button (always visible) between Resume and New Game opens a `Modal` with `LeaderboardView`. Home header: title + **gear → settings**, player avatar + **career badge** (tap → career when mode on). Basics card always visible; **Play Styles** under collapsible **How to Play** (`PlayStylesCollapsible` — 300ms height/opacity + chevron rotate). Version text removed from home (shown on settings footer). Language toggle moved to settings.
 
 **`LeaderboardView.tsx`:** always renders **ranks #1–#10** via `buildLeaderboardRows()` — filled slots show initials + score; empty slots show `---` / `—`. Empty-state hint when no entries yet; optional `highlightRank` (not wired from record card yet).
 
@@ -176,9 +253,23 @@ Replaces the old in-cell blink (scale/rotate/fade) with Candy Crush–style coll
 
 **Files:** `types/index.ts`, `constants/game.ts`, `utils/leaderboard.ts`, `LeaderboardView.tsx`, `InstructionPage.tsx`, `i18n/*`
 
+### Career mode (steps 12–15)
+
+**Promotion engine:** 8-tier ladder (intern→CEO); `applyRunResult` in `careerProgress.ts`. Wins only on Level 5 full clear via `finishRun` → `onRunResult({ won: true, completedLevel: 5 })`. Losses do not reset count or demote rank.
+
+**Career page (`CareerPage.tsx`):** Summary card (avatar + current rank + progress), **「1승 = 레벨 5까지 풀 클리어」** hint, vertical ladder (achieved / current / locked). Disabled state when career mode off → link to settings.
+
+**Promotion overlay (`PromotionOverlay.tsx`):** Banner + avatar on rank-up; CEO variant longer display. Shown from `AppRoot` after `recordRunResult` returns `promoted`.
+
+**Settings (`SettingsPage.tsx`):** Language (`LanguageToggle`), avatar picker, career mode toggle, win definition + rules snippet, **승진 현황** button (replaces text link; gap below toggle). App version at footer.
+
+**Navigation:** `AppRoot` screen stack; `careerBackTarget` for settings ↔ career back stack.
+
+**Files:** `src/career/*`, `src/types/career.ts`, `src/settings/*`, `SettingsPage.tsx`, `CareerPage.tsx`, `PromotionOverlay.tsx`, `AvatarPicker.tsx`, `PlayerAvatar.tsx`, `constants/avatars.ts`, `assets/avatars/*`, `App.tsx`, `InstructionPage.tsx`, `useCandyBreak.ts`, `i18n/*`
+
 ### Record card (step 10)
 
-**Run end:** `finishRun(finalScore, didWin)` — single entry point when a **run** ends (not mid-stage advance). Sets `gameOver`, loads leaderboard async, sets `isNewRunRecord` via `qualifiesForLeaderboardScore`. While loading, `isLeaderboardPending` suppresses overlays.
+**Run end:** `finishRun(finalScore, didWin)` — single entry point when a **run** ends (not mid-stage advance). Sets `gameOver`, loads leaderboard async, sets `isNewRunRecord` via `qualifiesForLeaderboardScore`. While loading, `isLeaderboardPending` suppresses overlays. When career mode on, also calls `onRunResult` (+1 win on `didWin`, loss otherwise).
 
 **When `finishRun` fires:**
 
@@ -236,9 +327,9 @@ Both `__DEV__ && false` by default; never active in production. Wired via `isDev
 | Hook | `useCandyBreak.ts` | `finishRun`, `isNewRunRecord`, `isLeaderboardPending`, `restartFromLevelOne` |
 | Entrance UI | `InstructionPage.tsx` + `LeaderboardView.tsx` | intro modal, fixed 1–10 ranked list |
 | Record card | `RecordCardOverlay.tsx` | top-10 initials + save |
-| Wiring | `App.tsx` | `isNewRunRecord` → record card (win or lose); `won && !isNewRunRecord` → completion overlay; lose without top-10 → game over |
+| Wiring | `App.tsx` | Screen stack (`home` / `game` / `settings` / `career`); `isNewRunRecord` → record card; `won && !isNewRunRecord` → completion overlay; `PromotionOverlay` on career promote |
 
-**AsyncStorage keys:** `leaderboard`, `playerInitials`, `bestScore` (HUD + migration seed)
+**AsyncStorage keys:** `leaderboard`, `playerInitials`, `bestScore` (HUD + migration seed), `careerState`, `appSettings`, `appLanguage`
 
 ### Testing checklist (steps 10–11)
 
@@ -266,6 +357,20 @@ Both `__DEV__ && false` by default; never active in production. Wired via `isDev
 - [x] Save inserts entry; list sorted; cap at 10
 - [x] ko/en strings for record card UI
 
+### Career mode (steps 12–16)
+
+- [x] New player starts at intern, `promotionWins: 0`
+- [x] Level 5 full clear increments win count; levels 1–4 advance only
+- [x] Loss does not reset win count or lower rank
+- [x] Promotion at thresholds; wins reset to 0 on promote; no rank skip
+- [x] Home career badge + settings career button → ladder page
+- [x] Settings → career → back returns to **settings** (not home)
+- [x] Promotion overlay on rank-up (ko/en)
+- [x] Collapsible how-to-play with smooth expand animation
+- [x] Gear icon → settings; version on settings only
+- [ ] Playtest: 3 full clears intern→staff; career mode off → no storage changes
+- [ ] Playtest: avatar persists; displays on home + career summary
+
 ## Play styles (current — 12 modes)
 
 | Idx | Style | Goal | Pool | Notes |
@@ -290,8 +395,8 @@ Both `__DEV__ && false` by default; never active in production. Wired via `isDev
 - [x] Tap ⚡ — lightning stays visible until next stage
 - [x] Goal decrements on swap, not after cascade ends
 - [x] Game Over text readable; tap overlay retries stage
-- [x] Language toggle on intro only; persists across sessions
-- [x] ko/en HUD, banners, overlays, instructions
+- [x] Language toggle on **settings**; persists across sessions
+- [x] ko/en HUD, banners, overlays, instructions, career, settings
 
 ### Shuffle — step 5
 
@@ -335,3 +440,5 @@ Both `__DEV__ && false` by default; never active in production. Wired via `isDev
 - Initials / record card on stage clear or mid-level advance (levels 1–4)
 - Back-to-intro or quit from record card (Save + Play Again only; force-quit loses unsaved entry)
 - Mid-run leaderboard save (must reach `finishRun` — moves out or timer / level 5 clear)
+- Career mode v2: streak carryover, chain promote, demotion (go-stop-game optional features)
+- AI avatar / opponent portraits (single-player match-3 has player avatar only)
