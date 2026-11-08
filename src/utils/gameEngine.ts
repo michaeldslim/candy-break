@@ -489,6 +489,13 @@ export const resolveAllSteps = (
   return steps;
 };
 
+/** Match-find cascade rounds only (excludes special pre-drop steps with empty matchedByColor). */
+export const countMatchCascadeSteps = (steps: ICascadeStep[]): number =>
+  steps.reduce(
+    (n, step) => n + (Object.keys(step.matchedByColor).length > 0 ? 1 : 0),
+    0,
+  );
+
 export const scoreClear = (clearedTiles: number, comboCount: number): IScoreResult => {
   if (clearedTiles <= 0) {
     return { points: 0, comboAwarded: 0 };
