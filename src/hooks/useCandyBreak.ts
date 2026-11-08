@@ -32,6 +32,7 @@ import {
   getAdjacentPositions,
   getRandomPlayablePosition,
   ICascadeStep,
+  countMatchCascadeSteps,
   isPlayableCell,
   resolveAllSteps,
   scoreClear,
@@ -838,6 +839,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       const totalCleared = steps.reduce((sum, s) => sum + s.matchedPositions.length, 0);
 
       const comboCount = steps.length;
+      const matchCascadeCount = countMatchCascadeSteps(steps);
       const finalBoard = steps[steps.length - 1]!.nextBoard;
       const clearScore = scoreClear(totalCleared, comboCount);
 
@@ -896,9 +898,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
           setOrderStepIndex(runningOrderStepIndex);
           setTargetColor(runningTargetColor);
         }
-        const cascadeCount = stepIndex + 1;
-        if (cascadeCount >= 2) {
-          setCombo(cascadeCount);
+        if (stepIndex === steps.length - 1 && matchCascadeCount >= 2) {
+          setCombo(matchCascadeCount);
         }
       };
 
@@ -1000,6 +1001,9 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
 
         setMovesLeft(finalMoves);
         if (playStyle === 'multiplier-rush') setComboMultiplier(nextComboMultiplier);
+        if (matchCascadeCount < 2) {
+          setCombo(0);
+        }
         setMatchedCellKeys([]);
 
         // Bomb spawn threshold (bomb-storm spawns earlier)
