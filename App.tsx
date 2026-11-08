@@ -502,6 +502,7 @@ function AppRoot() {
   const { recordRunResult } = useCareer();
   const [screen, setScreen] = useState<AppScreen>('home');
   const [careerBackTarget, setCareerBackTarget] = useState<'home' | 'settings'>('home');
+  const [settingsBackTarget, setSettingsBackTarget] = useState<'home' | 'game' | 'career'>('home');
   const [promotedRank, setPromotedRank] = useState<CareerRank | null>(null);
   const [showPromotionOverlay, setShowPromotionOverlay] = useState(false);
 
@@ -518,7 +519,7 @@ function AppRoot() {
   if (screen === 'settings') {
     return (
       <SettingsPage
-        onBack={() => setScreen('home')}
+        onBack={() => setScreen(settingsBackTarget)}
         onOpenCareer={() => {
           setCareerBackTarget('settings');
           setScreen('career');
@@ -531,7 +532,10 @@ function AppRoot() {
     return (
       <CareerPage
         onBack={() => setScreen(careerBackTarget)}
-        onOpenSettings={() => setScreen('settings')}
+        onOpenSettings={() => {
+          setSettingsBackTarget('career');
+          setScreen('settings');
+        }}
       />
     );
   }
@@ -552,7 +556,10 @@ function AppRoot() {
         onStartGame={startGame}
         onContinueGame={continueGame}
         hasSavedGame={game.hasSavedGame}
-        onOpenSettings={() => setScreen('settings')}
+        onOpenSettings={() => {
+          setSettingsBackTarget('home');
+          setScreen('settings');
+        }}
         onOpenCareer={() => {
           setCareerBackTarget('home');
           setScreen('career');
@@ -572,7 +579,13 @@ function AppRoot() {
 
   return (
     <>
-      <AppContent game={game} />
+      <AppContent
+        game={game}
+        onOpenSettings={() => {
+          setSettingsBackTarget('game');
+          setScreen('settings');
+        }}
+      />
       <PromotionOverlay
         visible={showPromotionOverlay}
         title={promotionTitle}
@@ -587,8 +600,10 @@ function AppRoot() {
 
 function AppContent({
   game,
+  onOpenSettings,
 }: {
   game: ReturnType<typeof useCandyBreak>;
+  onOpenSettings: () => void;
 }) {
   const { strings, format } = useI18n();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -950,7 +965,18 @@ function AppContent({
       <StatusBar style="light" />
       <View onLayout={(e) => setHudHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerContainer}>
-          <Text style={styles.title}>{strings.app.title}</Text>
+          <View style={styles.titleRow}>
+            <View style={styles.titleSpacer} />
+            <Text style={styles.title}>{strings.app.title}</Text>
+            <Pressable
+              style={styles.settingsButton}
+              onPress={onOpenSettings}
+              accessibilityRole="button"
+              accessibilityLabel={strings.settings.title}
+            >
+              <Text style={styles.settingsIcon}>⚙</Text>
+            </Pressable>
+          </View>
           <View style={styles.topRow}>
             <Text style={styles.starsValue}>
               {strings.hud.stars.toUpperCase()}: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
@@ -1349,12 +1375,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleSpacer: {
+    width: 40,
+  },
   title: {
+    flex: 1,
     fontSize: 24,
     fontWeight: '800',
     color: '#fdf0d5',
     textAlign: 'center',
     marginBottom: 2,
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsIcon: {
+    color: '#ffd166',
+    fontSize: 24,
+    fontWeight: '700',
   },
   starsValue: {
     color: '#ffd166',
