@@ -22,6 +22,14 @@ export const ORDER_COLLECT_BASE_PER_COLOR = 12;
 export const ORDER_COLLECT_COLORS = ['Red', 'Blue', 'Gold'];
 export const MOVE_SAVER_REFUND_CAP = 3;
 
+/** Combo x7+ in one swap banks 1 star (max per run). */
+export const COMBO_STAR_THRESHOLD = 7;
+export const MAX_BANKED_STARS = 3;
+export const STAR_CONTINUE_COST = 3;
+export const CONTINUE_MOVE_RATIO = 0.5;
+export const CONTINUE_MOVE_MIN = 3;
+export const CONTINUE_TIMER_BONUS_SECONDS = 45;
+
 export const LEADERBOARD_MAX_ENTRIES = 10;
 export const LEADERBOARD_STORAGE_KEY = 'leaderboard';
 export const PLAYER_INITIALS_KEY = 'playerInitials';
