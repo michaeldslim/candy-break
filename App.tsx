@@ -20,7 +20,7 @@ import RecordCardOverlay from './src/components/RecordCardOverlay';
 import SettingsPage from './src/components/SettingsPage';
 import CareerPage from './src/components/CareerPage';
 import PromotionOverlay from './src/components/PromotionOverlay';
-import { MOVE_SAVER_REFUND_CAP } from './src/constants/game';
+import { MOVE_SAVER_REFUND_CAP, STAR_CONTINUE_COST } from './src/constants/game';
 import { careerRankLabel } from './src/career/careerLabels';
 import { useCareer } from './src/career/CareerProvider';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
@@ -629,10 +629,11 @@ function AppContent({
     tapCell,
     restart,
     restartFromLevelOne,
+    continueWithSavedStars,
+    giveUpAfterLoss,
     bombPosition,
     bombActivating,
-    stageStars,
-    bestStars,
+    bankedStars,
     playStyle,
     targetColor,
     orderSteps,
@@ -649,7 +650,6 @@ function AppContent({
 
   const matchAnim = useRef(new Animated.Value(0)).current;
   const comboAnim = useRef(new Animated.Value(0)).current;
-  const stageCompleteAnim = useRef(new Animated.Value(0)).current;
   const bombPulseAnim = useRef(new Animated.Value(0)).current;
   const bombPulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const matchSoundRef = useRef<Audio.Sound | null>(null);
@@ -846,17 +846,6 @@ function AppContent({
   }, [matchAnim, matchedCellKeys]);
 
   useEffect(() => {
-    if (stageStars === null) return;
-    stageCompleteAnim.setValue(0);
-    Animated.spring(stageCompleteAnim, {
-      toValue: 1,
-      friction: 5,
-      tension: 80,
-      useNativeDriver: true,
-    }).start();
-  }, [stageStars, stageCompleteAnim]);
-
-  useEffect(() => {
     if (combo < 2) return;
     comboAnim.setValue(0);
     Animated.timing(comboAnim, {
@@ -978,9 +967,20 @@ function AppContent({
             </Pressable>
           </View>
           <View style={styles.topRow}>
-            <Text style={styles.starsValue}>
-              {strings.hud.stars.toUpperCase()}: {[1, 2, 3].map((i) => (i <= bestStars ? '★' : '☆')).join('')}
-            </Text>
+            <View style={styles.bankedStarsGroup}>
+              <Text style={styles.starsValue}>
+                {strings.hud.bankedStars.toUpperCase()}: {[1, 2, 3].map((i) => (i <= bankedStars ? '★' : '☆')).join('')}
+              </Text>
+              {bankedStars >= STAR_CONTINUE_COST ? (
+                <View
+                  style={styles.continueReadyBadge}
+                  accessibilityRole="text"
+                  accessibilityLabel={strings.gameOver.continueWithStars}
+                >
+                  <Text style={styles.continueReadyText}>{strings.hud.continueReady}</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.bestValue}>{strings.hud.best.toUpperCase()}: 🥇 {bestScore}</Text>
           </View>
         </View>
@@ -1265,10 +1265,7 @@ function AppContent({
           </View>
 
           {gameOver && !isLeaderboardPending && !won && !isNewRunRecord ? (
-            <Pressable
-              style={styles.gameOverOverlay}
-              onPress={restart}
-            >
+            <View style={styles.gameOverOverlay} pointerEvents="box-none">
               <View style={styles.gameOverCard}>
                 <Text style={styles.gameOverTitle}>{strings.gameOver.titleLose}</Text>
                 <Text style={styles.gameOverBody}>
@@ -1282,33 +1279,24 @@ function AppContent({
                           ? strings.gameOver.stonesRemain
                           : strings.gameOver.noMoves}
                 </Text>
+                {bankedStars >= 3 ? (
+                  <Pressable
+                    style={styles.gameOverPrimaryButton}
+                    onPress={continueWithSavedStars}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.gameOverPrimaryButtonText}>{strings.gameOver.continueWithStars}</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={styles.gameOverSecondaryButton}
+                  onPress={giveUpAfterLoss}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.gameOverSecondaryButtonText}>{strings.gameOver.giveUp}</Text>
+                </Pressable>
               </View>
-            </Pressable>
-          ) : null}
-
-          {stageStars !== null ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.stageCompleteOverlay,
-                {
-                  opacity: stageCompleteAnim,
-                  transform: [
-                    {
-                      scale: stageCompleteAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.6, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <Text style={styles.stageCompleteTitle}>{strings.stageClear}</Text>
-              <Text style={styles.stageCompleteStars}>
-                {[1, 2, 3].map((i) => (i <= stageStars ? '★' : '☆')).join('  ')}
-              </Text>
-            </Animated.View>
+            </View>
           ) : null}
 
           {combo >= 2 ? (
@@ -1402,10 +1390,30 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
+  bankedStarsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    gap: 6,
+  },
   starsValue: {
     color: '#ffd166',
     fontSize: 12,
     fontWeight: '700',
+  },
+  continueReadyBadge: {
+    backgroundColor: 'rgba(255, 90, 95, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 129, 0.45)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  continueReadyText: {
+    color: '#ff6b81',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 14,
   },
   statsRow: {
     width: '100%',
@@ -1618,5 +1626,41 @@ const styles = StyleSheet.create({
     textShadowColor: '#0b132b',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
+  },
+  gameOverPrimaryButton: {
+    marginTop: 16,
+    width: '100%',
+    minHeight: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e9c46a',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  gameOverPrimaryButtonText: {
+    color: '#1c2541',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  gameOverSecondaryButton: {
+    marginTop: 10,
+    width: '100%',
+    minHeight: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2a4a6b',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  gameOverSecondaryButtonText: {
+    color: '#ffd166',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 });
