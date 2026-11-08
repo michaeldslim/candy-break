@@ -22,6 +22,12 @@ import {
   ORDER_COLLECT_BASE_PER_COLOR,
   ORDER_COLLECT_COLORS,
   TIMER_ATTACK_SECONDS,
+  COMBO_STAR_THRESHOLD,
+  MAX_BANKED_STARS,
+  STAR_CONTINUE_COST,
+  CONTINUE_MOVE_RATIO,
+  CONTINUE_MOVE_MIN,
+  CONTINUE_TIMER_BONUS_SECONDS,
 } from '../constants/game';
 import { IBoard, IFrozenCell, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
 import type { RunResultInput } from '../types/career';
@@ -58,6 +64,7 @@ interface ISavedGame {
   comboMultiplier?: number;
   bombRespawnsLeft?: number;
   moveSaverRefundsUsed?: number;
+  bankedStars?: number;
 }
 
 interface IUseCandyBreakResult {
@@ -81,8 +88,7 @@ interface IUseCandyBreakResult {
   combo: number;
   bombPosition: IPosition | null;
   bombActivating: IPosition | null;
-  stageStars: 1 | 2 | 3 | null;
-  bestStars: 0 | 1 | 2 | 3;
+  bankedStars: number;
   hasSavedGame: boolean;
   playStyle: PlayStyle;
   targetColor: string | null;
@@ -99,6 +105,8 @@ interface IUseCandyBreakResult {
   restart: () => void;
   restartFromLevelOne: () => void;
   resumeSavedGame: () => void;
+  continueWithSavedStars: () => void;
+  giveUpAfterLoss: () => void;
 }
 
 interface UseCandyBreakOptions {
@@ -114,24 +122,13 @@ const SHAPE_GOALS = [40, 55, 65, 45, 55, 50, 36, 12, 48, 42, 50, 45];
 const LEVEL_GOAL_MULTIPLIERS = [1, 1.15, 1.3, 1.5, 1.7];
 const LEVEL_MOVES = [20, 19, 18, 17, 16];
 
-const calcStars = (
-  remaining: number,
-  total: number,
-  style: PlayStyle,
-): 1 | 2 | 3 => {
-  const ratio = total > 0 ? remaining / total : 0;
-  if (style === 'timer-attack') {
-    if (ratio >= 0.5) return 3;
-    if (ratio >= 0.2) return 2;
-    return 1;
-  }
-  if (ratio >= 0.5) return 3;
-  if (ratio >= 0.25) return 2;
-  return 1;
-};
-
 const getMovesForLevel = (level: number): number =>
   LEVEL_MOVES[level - 1] ?? LEVEL_MOVES[LEVEL_MOVES.length - 1] ?? GAME_CONFIG.easyMoves;
+
+const getContinueMoves = (level: number): number => {
+  const base = getMovesForLevel(level);
+  return Math.max(CONTINUE_MOVE_MIN, Math.ceil(base * CONTINUE_MOVE_RATIO));
+};
 
 const shuffleIndices = (indices: number[]): number[] => {
   const result = [...indices];
@@ -557,9 +554,9 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
   const [gameOver, setGameOver] = useState(false);
   const [bombPosition, setBombPosition] = useState<IPosition | null>(null);
   const [bombActivating, setBombActivating] = useState<IPosition | null>(null);
-  const [stageStars, setStageStars] = useState<1 | 2 | 3 | null>(null);
+  const [bankedStars, setBankedStars] = useState(0);
+  const bankedStarsRef = useRef(0);
   const [bestScore, setBestScore] = useState(0);
-  const [bestStars, setBestStars] = useState<0 | 1 | 2 | 3>(0);
   const [hasSavedGame, setHasSavedGame] = useState(false);
   const savedGameRef = useRef<ISavedGame | null>(null);
   const bestScoreRef = useRef(0);
@@ -589,6 +586,10 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
   }, [score]);
 
   useEffect(() => {
+    bankedStarsRef.current = bankedStars;
+  }, [bankedStars]);
+
+  useEffect(() => {
     AsyncStorage.getItem('bestScore').then((value) => {
       if (value !== null) setBestScore(parseInt(value, 10));
     }).catch(() => undefined);
@@ -601,13 +602,13 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     }).catch(() => undefined);
   }, []);
 
-  // Clear saved game when game ends
+  // Clear saved game when the run is won
   useEffect(() => {
-    if (gameOver) {
+    if (gameOver && won) {
       AsyncStorage.removeItem(SAVE_GAME_KEY).catch(() => undefined);
       setHasSavedGame(false);
     }
-  }, [gameOver]);
+  }, [gameOver, won]);
 
   const finishRun = useCallback((finalScore: number, didWin: boolean): void => {
     setScore(finalScore);
@@ -635,13 +636,14 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       });
   }, [notifyRunResult]);
 
-  // Load best stars for current shape+level
-  useEffect(() => {
-    const key = `stars_L${level}_S${shapeIndex}`;
-    AsyncStorage.getItem(key).then((value) => {
-      setBestStars(value !== null ? (parseInt(value, 10) as 1 | 2 | 3) : 0);
-    }).catch(() => undefined);
-  }, [level, shapeIndex]);
+  const enterRunLoss = useCallback((finalScore: number) => {
+    setScore(finalScore);
+    setIsResolving(false);
+    setGameOver(true);
+    setWon(false);
+    setIsNewRunRecord(false);
+    setIsLeaderboardPending(false);
+  }, []);
 
   // Timer countdown for timer-attack mode — just ticks
   useEffect(() => {
@@ -670,9 +672,9 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
-      finishRun(scoreRef.current, false);
+      enterRunLoss(scoreRef.current);
     }
-  }, [finishRun, playStyle, timerSecondsLeft, gameOver, won]);
+  }, [enterRunLoss, playStyle, timerSecondsLeft, gameOver, won]);
 
   const currentShape = GAME_SHAPES[shapeIndex] ?? GAME_SHAPES[0];
   const shapeMask = currentShape.mask;
@@ -706,7 +708,6 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setCombo(0);
     setBombPosition(null);
     setBombActivating(null);
-    setStageStars(null);
   }, []);
 
   const tapCell = useCallback(
@@ -931,13 +932,13 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
           movesLeft: getMovesForLevel(newLevel),
           goalRemaining: getGoalForStage(newShapeIndex, newLevel),
           board: newBoard,
+          bankedStars: bankedStarsRef.current,
         };
         savedGameRef.current = snap;
         AsyncStorage.setItem(SAVE_GAME_KEY, JSON.stringify(snap)).catch(() => undefined);
       };
 
-      const advanceAfterStars = (): void => {
-        setStageStars(null);
+      const advanceAfterStage = (): void => {
         const currentScore = score + effectivePoints;
 
         if (isDevForceFullWin(level, stageSlot, stageOrder.length)) {
@@ -1004,6 +1005,11 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
         if (matchCascadeCount < 2) {
           setCombo(0);
         }
+        if (matchCascadeCount >= COMBO_STAR_THRESHOLD) {
+          const nextBanked = Math.min(MAX_BANKED_STARS, bankedStarsRef.current + 1);
+          setBankedStars(nextBanked);
+          bankedStarsRef.current = nextBanked;
+        }
         setMatchedCellKeys([]);
 
         // Bomb spawn threshold (bomb-storm spawns earlier)
@@ -1018,24 +1024,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
           : runningGoalRemaining === 0;
 
         if (isStageGoalMet) {
-          const totalMoves = getMovesForLevel(level);
-          const starsRemaining = playStyle === 'timer-attack' ? (timerSecondsLeft ?? 0) : finalMoves;
-          const starsTotal = playStyle === 'timer-attack' ? (currentShape.timerSeconds ?? TIMER_ATTACK_SECONDS) : totalMoves;
-          const stars = calcStars(starsRemaining, starsTotal, playStyle);
-          const starsKey = `stars_L${level}_S${shapeIndex}`;
-          AsyncStorage.getItem(starsKey).then((existing) => {
-            const prev = existing ? parseInt(existing, 10) : 0;
-            if (stars > prev) {
-              AsyncStorage.setItem(starsKey, String(stars)).catch(() => undefined);
-              setBestStars(stars);
-            } else {
-              setBestStars(prev as 0 | 1 | 2 | 3);
-            }
-          }).catch(() => undefined);
-          setStageStars(stars);
-          resolveTimerRef.current = setTimeout(() => {
-            advanceAfterStars();
-          }, 1500);
+          setIsResolving(false);
+          advanceAfterStage();
           return;
         }
 
@@ -1049,6 +1039,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
             movesLeft: finalMoves,
             goalRemaining: runningGoalRemaining,
             board: finalBoard,
+            bankedStars: bankedStarsRef.current,
             targetColor: playStyle === 'order-collect' ? runningTargetColor : targetColor,
             orderSteps: playStyle === 'order-collect' ? orderSteps : undefined,
             orderStepIndex: playStyle === 'order-collect' ? runningOrderStepIndex : undefined,
@@ -1060,12 +1051,14 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
             bombRespawnsLeft: playStyle === 'bomb-storm' ? bombRespawnsLeft : undefined,
             moveSaverRefundsUsed: playStyle === 'move-saver' ? nextMoveSaverRefundsUsed : undefined,
           };
+          savedGameRef.current = snap;
+          setHasSavedGame(true);
           AsyncStorage.setItem(SAVE_GAME_KEY, JSON.stringify(snap)).catch(() => undefined);
         }
 
         setIsResolving(false);
         if (playStyle !== 'timer-attack' && finalMoves === 0) {
-          finishRun(score + effectivePoints, false);
+          enterRunLoss(score + effectivePoints);
         }
       };
 
@@ -1123,7 +1116,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       stageSlot,
       targetColor,
       timerSecondsLeft,
-      finishRun,
+      enterRunLoss,
       won,
     ],
   );
@@ -1160,7 +1153,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setGameOver(false);
     setBombPosition(null);
     setBombActivating(null);
-    setStageStars(null);
+    setBankedStars(saved.bankedStars ?? 0);
     setPlayStyle(shape.playStyle);
     setTargetColor(saved.targetColor ?? null);
     setOrderSteps(saved.orderSteps ?? []);
@@ -1175,7 +1168,70 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setTimerSecondsLeft(shape.playStyle === 'timer-attack' ? (shape.timerSeconds ?? TIMER_ATTACK_SECONDS) : null);
   }, []);
 
-  const restart = useCallback(() => {
+  const persistCurrentSnap = useCallback((): void => {
+    const currentShapeIndex = stageOrder[stageSlot] ?? 0;
+    const snap: ISavedGame = {
+      level,
+      shapeIndex: currentShapeIndex,
+      stageOrder,
+      stageSlot,
+      score,
+      movesLeft,
+      goalRemaining,
+      board,
+      bankedStars: bankedStarsRef.current,
+      targetColor: playStyle === 'order-collect' ? targetColor : undefined,
+      orderSteps: playStyle === 'order-collect' ? orderSteps : undefined,
+      orderStepIndex: playStyle === 'order-collect' ? orderStepIndex : undefined,
+      frozenCells: playStyle === 'locked-tiles' ? frozenCells : undefined,
+      jellyCells: playStyle === 'jelly-tiles' ? jellyCells : undefined,
+      stoneCells: playStyle === 'stone-blocks' ? stoneCells : undefined,
+      timerSecondsLeft: playStyle === 'timer-attack' ? timerSecondsLeft : undefined,
+      comboMultiplier: playStyle === 'multiplier-rush' ? comboMultiplier : undefined,
+      bombRespawnsLeft: playStyle === 'bomb-storm' ? bombRespawnsLeft : undefined,
+      moveSaverRefundsUsed: playStyle === 'move-saver' ? moveSaverRefundsUsed : undefined,
+    };
+    savedGameRef.current = snap;
+    setHasSavedGame(true);
+    AsyncStorage.setItem(SAVE_GAME_KEY, JSON.stringify(snap)).catch(() => undefined);
+  }, [
+    board,
+    bombRespawnsLeft,
+    comboMultiplier,
+    frozenCells,
+    goalRemaining,
+    jellyCells,
+    level,
+    moveSaverRefundsUsed,
+    movesLeft,
+    orderStepIndex,
+    orderSteps,
+    playStyle,
+    score,
+    stageOrder,
+    stageSlot,
+    stoneCells,
+    targetColor,
+    timerSecondsLeft,
+  ]);
+
+  const continueWithSavedStars = useCallback(() => {
+    if (bankedStars < STAR_CONTINUE_COST) return;
+    bankedStarsRef.current = 0;
+    setBankedStars(0);
+    setGameOver(false);
+    setWon(false);
+    setIsResolving(false);
+    if (playStyle === 'timer-attack') {
+      setTimerSecondsLeft((prev) => (prev ?? 0) + CONTINUE_TIMER_BONUS_SECONDS);
+    } else {
+      setMovesLeft(getContinueMoves(level));
+    }
+    persistCurrentSnap();
+  }, [bankedStars, level, persistCurrentSnap, playStyle]);
+
+  const giveUpAfterLoss = useCallback(() => {
+    finishRun(scoreRef.current, false);
     if (resolveTimerRef.current) {
       clearTimeout(resolveTimerRef.current);
       resolveTimerRef.current = null;
@@ -1194,7 +1250,11 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     const currentShapeIndex = stageOrder[stageSlot] ?? 0;
     const init = initializeStage(currentShapeIndex, level);
     applyStageInit(init);
-  }, [applyStageInit, level, stageOrder, stageSlot]);
+  }, [applyStageInit, finishRun, level, stageOrder, stageSlot]);
+
+  const restart = useCallback(() => {
+    giveUpAfterLoss();
+  }, [giveUpAfterLoss]);
 
   const restartFromLevelOne = useCallback(() => {
     if (resolveTimerRef.current) {
@@ -1216,6 +1276,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setIsNewRunRecord(false);
     setIsLeaderboardPending(false);
     setGameOver(false);
+    setBankedStars(0);
+    bankedStarsRef.current = 0;
     applyStageInit(nextRun.init);
   }, [applyStageInit]);
 
@@ -1266,8 +1328,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     stageSlot,
     bombPosition,
     bombActivating,
-    stageStars,
-    bestStars,
+    bankedStars,
     hasSavedGame,
     combo,
     playStyle,
@@ -1285,5 +1346,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     restart,
     restartFromLevelOne,
     resumeSavedGame,
+    continueWithSavedStars,
+    giveUpAfterLoss,
   };
 };
