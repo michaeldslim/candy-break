@@ -70,6 +70,8 @@ export interface IStrings {
   };
   hud: {
     stars: string;
+    bankedStars: string;
+    continueReady: string;
     best: string;
     score: string;
     level: string;
@@ -88,6 +90,8 @@ export interface IStrings {
   gameOver: {
     titleLose: string;
     titleWin: string;
+    continueWithStars: string;
+    giveUp: string;
     noMoves: string;
     timeOut: string;
     frozenRemain: string;
