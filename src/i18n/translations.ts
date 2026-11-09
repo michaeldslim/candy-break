@@ -16,6 +16,12 @@ const ko: IStrings = {
     gameplay: '게임플레이',
     playerAvatar: '내 아바타',
     playerAvatarDesc: '홈 화면과 승진 현황에 표시됩니다',
+    backgroundMusic: '배경음악',
+    backgroundMusicDesc: '게임 중 배경음악',
+    soundEffects: '효과음',
+    soundEffectsDesc: '매치·승리 등 게임 효과음',
+    volume: '볼륨',
+    volumePercent: '{percent}%',
   },
   career: {
     ranks: {
@@ -205,6 +211,12 @@ const en: IStrings = {
     gameplay: 'Gameplay',
     playerAvatar: 'Your Avatar',
     playerAvatarDesc: 'Shown on the home screen and career page',
+    backgroundMusic: 'Background music',
+    backgroundMusicDesc: 'Background loop while playing',
+    soundEffects: 'Sound effects',
+    soundEffectsDesc: 'Match, win, and other in-game sounds',
+    volume: 'Volume',
+    volumePercent: '{percent}%',
   },
   career: {
     ranks: {

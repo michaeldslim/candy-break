@@ -30,6 +30,12 @@ export interface IStrings {
     gameplay: string;
     playerAvatar: string;
     playerAvatarDesc: string;
+    backgroundMusic: string;
+    backgroundMusicDesc: string;
+    soundEffects: string;
+    soundEffectsDesc: string;
+    volume: string;
+    volumePercent: string;
   };
   career: {
     ranks: Record<
