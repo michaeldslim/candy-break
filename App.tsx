@@ -23,6 +23,7 @@ import PromotionOverlay from './src/components/PromotionOverlay';
 import { MOVE_SAVER_REFUND_CAP, STAR_CONTINUE_COST, STAGE_TIME_LOW_WARNING_SECONDS } from './src/constants/game';
 import { careerRankLabel } from './src/career/careerLabels';
 import { useCareer } from './src/career/CareerProvider';
+import { useBackgroundMusic } from './src/hooks/useBackgroundMusic';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
 import { I18nProvider, useI18n } from './src/i18n/I18nContext';
 import { PlayStyleBannerKey } from './src/i18n/types';
@@ -555,6 +556,12 @@ function AppRoot() {
     isRunTimerActive: screen === 'game',
   });
 
+  useBackgroundMusic({
+    shouldPlay: screen === 'game' && !game.isPaused,
+    enabled: settings.backgroundMusicEnabled,
+    volume: settings.backgroundMusicVolume,
+  });
+
   if (screen === 'settings') {
     return (
       <SettingsPage
@@ -646,6 +653,7 @@ function AppContent({
   onOpenSettings: () => void;
 }) {
   const { strings, format } = useI18n();
+  const { settings } = useSettings();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const {
     board,
@@ -778,6 +786,12 @@ function AppContent({
     };
   }, []);
 
+  useEffect(() => {
+    const volume = settings.soundEffectsEnabled ? settings.soundEffectsVolume : 0;
+    void matchSoundRef.current?.setVolumeAsync(volume);
+    void congratsSoundRef.current?.setVolumeAsync(volume);
+  }, [settings.soundEffectsEnabled, settings.soundEffectsVolume]);
+
   const bottomSafeInset =
     Platform.OS === 'android' ? ANDROID_BOTTOM_SAFE_INSET : IOS_BOTTOM_EXTRA_INSET;
 
@@ -871,6 +885,9 @@ function AppContent({
     }
 
     const playMatchSound = async (): Promise<void> => {
+      if (!settings.soundEffectsEnabled) {
+        return;
+      }
       const sound = matchSoundRef.current;
       if (!sound) {
         return;
@@ -887,7 +904,7 @@ function AppContent({
       easing: Easing.bezier(0.2, 0.85, 0.35, 1),
       useNativeDriver: true,
     }).start();
-  }, [matchAnim, matchedCellKeys]);
+  }, [matchAnim, matchedCellKeys, settings.soundEffectsEnabled]);
 
   useEffect(() => {
     if (combo < 2) return;
@@ -903,6 +920,9 @@ function AppContent({
     const isFinalWin = won && gameOver;
     if (isFinalWin && !prevFinalWinRef.current) {
       const playCongratsSound = async (): Promise<void> => {
+        if (!settings.soundEffectsEnabled) {
+          return;
+        }
         const sound = congratsSoundRef.current;
         if (!sound) {
           return;

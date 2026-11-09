@@ -3,8 +3,11 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform, Pressable, SafeAreaView, ScrollView, StatusBar as RNStatusBar, StyleSheet, Switch, Text, View } from 'react-native';
 import { useI18n } from '../i18n/I18nContext';
 import { useSettings } from '../settings/SettingsProvider';
+import { BGM_VOLUME_DEFAULT, SFX_VOLUME_DEFAULT } from '../constants/audio';
+import { clampVolume } from '../settings/volume';
 import AvatarPicker from './AvatarPicker';
 import LanguageToggle from './LanguageToggle';
+import VolumeSlider from './VolumeSlider';
 
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 
@@ -45,7 +48,53 @@ export default function SettingsPage({ onBack, onOpenCareer }: SettingsPageProps
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{strings.settings.gameplay}</Text>
-          <View style={styles.toggleRow}>
+          <View style={styles.audioCard}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleText}>
+                <Text style={styles.toggleLabel}>{strings.settings.backgroundMusic}</Text>
+                <Text style={styles.toggleDesc}>{strings.settings.backgroundMusicDesc}</Text>
+              </View>
+              <Switch
+                value={settings.backgroundMusicEnabled}
+                onValueChange={(value) => updateSettings({ backgroundMusicEnabled: value })}
+                trackColor={{ false: '#3a506b', true: '#ffd166' }}
+                thumbColor="#fdf0d5"
+              />
+            </View>
+            <VolumeSlider
+              value={settings.backgroundMusicVolume}
+              onChange={(value) =>
+                updateSettings({
+                  backgroundMusicVolume: clampVolume(value, BGM_VOLUME_DEFAULT),
+                })
+              }
+              disabled={!settings.backgroundMusicEnabled}
+            />
+          </View>
+          <View style={styles.audioCard}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleText}>
+                <Text style={styles.toggleLabel}>{strings.settings.soundEffects}</Text>
+                <Text style={styles.toggleDesc}>{strings.settings.soundEffectsDesc}</Text>
+              </View>
+              <Switch
+                value={settings.soundEffectsEnabled}
+                onValueChange={(value) => updateSettings({ soundEffectsEnabled: value })}
+                trackColor={{ false: '#3a506b', true: '#ffd166' }}
+                thumbColor="#fdf0d5"
+              />
+            </View>
+            <VolumeSlider
+              value={settings.soundEffectsVolume}
+              onChange={(value) =>
+                updateSettings({
+                  soundEffectsVolume: clampVolume(value, SFX_VOLUME_DEFAULT),
+                })
+              }
+              disabled={!settings.soundEffectsEnabled}
+            />
+          </View>
+          <View style={[styles.toggleRow, styles.careerToggleCard]}>
             <View style={styles.toggleText}>
               <Text style={styles.toggleLabel}>{strings.career.modeLabel}</Text>
               <Text style={styles.toggleDesc}>{strings.career.modeDesc}</Text>
@@ -116,11 +165,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  audioCard: {
+    gap: 4,
+    backgroundColor: '#1c2541',
+    borderRadius: 12,
+    padding: 14,
+  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  careerToggleCard: {
     backgroundColor: '#1c2541',
     borderRadius: 12,
     padding: 14,
