@@ -20,7 +20,7 @@ import RecordCardOverlay from './src/components/RecordCardOverlay';
 import SettingsPage from './src/components/SettingsPage';
 import CareerPage from './src/components/CareerPage';
 import PromotionOverlay from './src/components/PromotionOverlay';
-import { MOVE_SAVER_REFUND_CAP, STAR_CONTINUE_COST } from './src/constants/game';
+import { MOVE_SAVER_REFUND_CAP, STAR_CONTINUE_COST, STAGE_TIME_LOW_WARNING_SECONDS } from './src/constants/game';
 import { careerRankLabel } from './src/career/careerLabels';
 import { useCareer } from './src/career/CareerProvider';
 import { useCandyBreak } from './src/hooks/useCandyBreak';
@@ -110,6 +110,42 @@ type FlyingCandySpec = {
   color: string;
   tumbleSign: 1 | -1;
 };
+
+function StageTimeBar({
+  remaining,
+  total,
+  remainingLabel,
+}: {
+  remaining: number | null;
+  total: number | null;
+  remainingLabel?: string;
+}) {
+  if (remaining === null || total === null || total <= 0) {
+    return <View style={styles.stageTimeBarSlot} />;
+  }
+  const ratio = Math.min(1, Math.max(0, remaining / total));
+  const low = remaining <= STAGE_TIME_LOW_WARNING_SECONDS;
+  const fillColor = low
+    ? (remaining <= 8 ? '#ff6b81' : '#ffd166')
+    : (ratio > 0.35 ? '#6bcbff' : '#6BCB77');
+  const secondsColor = low
+    ? (remaining <= 8 ? '#ff6b81' : '#ffd166')
+    : (ratio > 0.35 ? '#6bcbff' : '#6BCB77');
+
+  return (
+    <View
+      style={styles.stageTimeBarSlot}
+      accessibilityRole="progressbar"
+      accessibilityLabel={remainingLabel}
+      accessibilityValue={{ min: 0, max: total, now: remaining }}
+    >
+      <View style={styles.stageTimeTrack}>
+        <View style={[styles.stageTimeFill, { width: `${ratio * 100}%`, backgroundColor: fillColor }]} />
+      </View>
+      <Text style={[styles.stageTimeSeconds, { color: secondsColor }]}>{remaining}</Text>
+    </View>
+  );
+}
 
 function CollectionBasket({
   width,
@@ -643,6 +679,7 @@ function AppContent({
     stoneCells,
     comboMultiplier,
     timerSecondsLeft,
+    stageTimeTotal,
     moveSaverRefundsUsed,
   } = game;
 
@@ -884,7 +921,7 @@ function AppContent({
   const fourthCard = (() => {
     switch (playStyle) {
       case 'timer-attack':
-        return { label: strings.hud.time, value: String(timerSecondsLeft ?? 0), warn: (timerSecondsLeft ?? 999) <= 15 };
+        return { label: strings.hud.moves, value: '∞', warn: false };
       case 'multiplier-rush':
         return { label: strings.hud.multi, value: `x${comboMultiplier}`, warn: false };
       case 'locked-tiles':
@@ -981,6 +1018,15 @@ function AppContent({
                 </View>
               ) : null}
             </View>
+            <StageTimeBar
+              remaining={timerSecondsLeft}
+              total={stageTimeTotal}
+              remainingLabel={
+                timerSecondsLeft !== null
+                  ? `${timerSecondsLeft}s`
+                  : undefined
+              }
+            />
             <Text style={styles.bestValue}>{strings.hud.best.toUpperCase()}: 🥇 {bestScore}</Text>
           </View>
         </View>
@@ -1356,12 +1402,44 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   bestValue: {
     color: '#ffd166',
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 0,
+    marginLeft: 'auto',
+    textAlign: 'right',
+  },
+  stageTimeBarSlot: {
+    flex: 1,
+    flexShrink: 1,
+    flexDirection: 'row',
+    minWidth: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 2,
+  },
+  stageTimeTrack: {
+    width: 100,
+    maxWidth: 100,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(169, 188, 208, 0.22)',
+    overflow: 'hidden',
+  },
+  stageTimeFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  stageTimeSeconds: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    minWidth: 22,
+    textAlign: 'left',
   },
   titleRow: {
     flexDirection: 'row',
@@ -1393,8 +1471,9 @@ const styles = StyleSheet.create({
   bankedStarsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
+    flexShrink: 0,
     gap: 6,
+    maxWidth: '42%',
   },
   starsValue: {
     color: '#ffd166',
