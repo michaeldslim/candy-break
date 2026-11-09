@@ -26,16 +26,16 @@ import PlayerAvatar from './PlayerAvatar';
 const ANDROID_TOP_PADDING = Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0;
 const COLLAPSE_DURATION_MS = 300;
 
+type InstructionSection = { heading: string; items: string[] };
+
 function PlayStylesCollapsible({
   title,
-  heading,
-  items,
+  sections,
   expanded,
   onToggle,
 }: {
   title: string;
-  heading: string;
-  items: string[];
+  sections: InstructionSection[];
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -77,9 +77,16 @@ function PlayStylesCollapsible({
 
   const bodyContent = (
     <View style={styles.collapsibleBody}>
-      <Text style={styles.instructionSectionHeading}>{heading}</Text>
-      {items.map((item) => (
-        <Text key={item} style={styles.instructionItem}>{item}</Text>
+      {sections.map((section, index) => (
+        <View
+          key={section.heading}
+          style={index > 0 ? styles.instructionSubsection : undefined}
+        >
+          <Text style={styles.instructionSectionHeading}>{section.heading}</Text>
+          {section.items.map((item) => (
+            <Text key={item} style={styles.instructionItem}>{item}</Text>
+          ))}
+        </View>
       ))}
     </View>
   );
@@ -148,7 +155,7 @@ export default function InstructionPage({
       : null;
 
   const basicsSection = instruction.sections[0];
-  const playStylesSection = instruction.sections[1];
+  const howToPlaySections = instruction.sections.slice(1);
 
   useEffect(() => {
     if (!showLeaderboard) return;
@@ -211,11 +218,10 @@ export default function InstructionPage({
             </View>
           ) : null}
 
-          {playStylesSection ? (
+          {howToPlaySections.length > 0 ? (
             <PlayStylesCollapsible
               title={instruction.playStylesHeading}
-              heading={playStylesSection.heading}
-              items={playStylesSection.items}
+              sections={howToPlaySections}
               expanded={playStylesExpanded}
               onToggle={() => setPlayStylesExpanded((prev) => !prev)}
             />
@@ -334,6 +340,10 @@ const styles = StyleSheet.create({
   collapsibleBody: {
     gap: 8,
     marginTop: 4,
+  },
+  instructionSubsection: {
+    marginTop: 12,
+    gap: 8,
   },
   collapsibleAnimatedWrap: {
     overflow: 'hidden',
