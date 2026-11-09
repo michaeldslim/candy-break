@@ -550,7 +550,10 @@ function AppRoot() {
     }
   }, [recordRunResult]);
 
-  const game = useCandyBreak({ onRunResult: handleRunResult });
+  const game = useCandyBreak({
+    onRunResult: handleRunResult,
+    isRunTimerActive: screen === 'game',
+  });
 
   if (screen === 'settings') {
     return (
@@ -583,8 +586,9 @@ function AppRoot() {
     };
 
     const continueGame = (): void => {
-      game.resumeSavedGame();
-      setScreen('game');
+      void game.resumeSavedGame().then((ok) => {
+        if (ok) setScreen('game');
+      });
     };
 
     return (
@@ -662,6 +666,8 @@ function AppContent({
     shapeIndex,
     stageSlot,
     combo,
+    isPaused,
+    togglePause,
     tapCell,
     restart,
     restartFromLevelOne,
@@ -670,6 +676,7 @@ function AppContent({
     bombPosition,
     bombActivating,
     bankedStars,
+    canContinueRun,
     playStyle,
     targetColor,
     orderSteps,
@@ -992,7 +999,17 @@ function AppContent({
       <View onLayout={(e) => setHudHeight(e.nativeEvent.layout.height)}>
         <View style={styles.headerContainer}>
           <View style={styles.titleRow}>
-            <View style={styles.titleSpacer} />
+            <Pressable
+              style={styles.settingsButton}
+              onPress={togglePause}
+              disabled={gameOver || won}
+              accessibilityRole="button"
+              accessibilityLabel={isPaused ? strings.hud.resume : strings.hud.pause}
+            >
+              <Text style={[styles.settingsIcon, (gameOver || won) ? styles.headerIconDisabled : null]}>
+                {isPaused ? '▶' : '⏸'}
+              </Text>
+            </Pressable>
             <Text style={styles.title}>{strings.app.title}</Text>
             <Pressable
               style={styles.settingsButton}
@@ -1008,11 +1025,11 @@ function AppContent({
               <Text style={styles.starsValue}>
                 {strings.hud.bankedStars.toUpperCase()}: {[1, 2, 3].map((i) => (i <= bankedStars ? '★' : '☆')).join('')}
               </Text>
-              {bankedStars >= STAR_CONTINUE_COST ? (
+              {canContinueRun && bankedStars >= STAR_CONTINUE_COST ? (
                 <View
                   style={styles.continueReadyBadge}
                   accessibilityRole="text"
-                  accessibilityLabel={strings.gameOver.continueWithStars}
+                  accessibilityLabel={strings.hud.continueReadyA11y}
                 >
                   <Text style={styles.continueReadyText}>{strings.hud.continueReady}</Text>
                 </View>
@@ -1145,7 +1162,7 @@ function AppContent({
                       <Pressable
                         key={`cell-${rowIndex}-${colIndex}`}
                         onPress={() => tapCell(rowIndex, colIndex)}
-                        disabled={gameOver || isResolving}
+                        disabled={gameOver || isResolving || isPaused}
                         style={{
                           width: cellSize,
                           height: cellSize,
@@ -1181,7 +1198,7 @@ function AppContent({
                       <Pressable
                         key={`cell-${rowIndex}-${colIndex}`}
                         onPress={() => tapCell(rowIndex, colIndex)}
-                        disabled={gameOver || isResolving}
+                        disabled={gameOver || isResolving || isPaused}
                         style={{
                           width: cellSize,
                           height: cellSize,
@@ -1216,7 +1233,7 @@ function AppContent({
                     <View key={`cell-${rowIndex}-${colIndex}`} style={{ width: cellSize, height: cellSize }}>
                     <Pressable
                       onPress={() => tapCell(rowIndex, colIndex)}
-                      disabled={!isPlayable || gameOver || isResolving}
+                      disabled={!isPlayable || gameOver || isResolving || isPaused}
                       style={[
                         styles.cell,
                         {
@@ -1325,13 +1342,17 @@ function AppContent({
                           ? strings.gameOver.stonesRemain
                           : strings.gameOver.noMoves}
                 </Text>
-                {bankedStars >= 3 ? (
+                {canContinueRun ? (
                   <Pressable
                     style={styles.gameOverPrimaryButton}
                     onPress={continueWithSavedStars}
                     accessibilityRole="button"
                   >
-                    <Text style={styles.gameOverPrimaryButtonText}>{strings.gameOver.continueWithStars}</Text>
+                    <Text style={styles.gameOverPrimaryButtonText}>
+                      {bankedStars >= STAR_CONTINUE_COST
+                        ? strings.gameOver.continueWithStars
+                        : strings.gameOver.continue}
+                    </Text>
                   </Pressable>
                 ) : null}
                 <Pressable
@@ -1446,9 +1467,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  titleSpacer: {
-    width: 40,
-  },
   title: {
     flex: 1,
     fontSize: 24,
@@ -1467,6 +1485,9 @@ const styles = StyleSheet.create({
     color: '#ffd166',
     fontSize: 24,
     fontWeight: '700',
+  },
+  headerIconDisabled: {
+    opacity: 0.35,
   },
   bankedStarsGroup: {
     flexDirection: 'row',
