@@ -72,6 +72,7 @@ export interface IStrings {
     stars: string;
     bankedStars: string;
     continueReady: string;
+    continueReadyA11y: string;
     best: string;
     score: string;
     level: string;
@@ -85,11 +86,14 @@ export interface IStrings {
     stones: string;
     saved: string;
     moves: string;
+    pause: string;
+    resume: string;
   };
   banners: Record<PlayStyleBannerKey, { label: string; hint: string }>;
   gameOver: {
     titleLose: string;
     titleWin: string;
+    continue: string;
     continueWithStars: string;
     giveUp: string;
     noMoves: string;
