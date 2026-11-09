@@ -36,6 +36,10 @@ export const LEVEL_TIME_MULTIPLIERS = [1, 0.92, 0.85, 0.78, 0.72];
 export const STAGE_TIME_MIN_SECONDS = 45;
 export const STAGE_TIME_LOW_WARNING_SECONDS = 15;
 
+/** Stage-to-stage board/HUD crossfade (ms). Keep in sync with App.tsx animation. */
+export const STAGE_FADE_OUT_MS = 260;
+export const STAGE_FADE_IN_MS = 320;
+
 export const LEADERBOARD_MAX_ENTRIES = 10;
 export const LEADERBOARD_STORAGE_KEY = 'leaderboard';
 export const PLAYER_INITIALS_KEY = 'playerInitials';

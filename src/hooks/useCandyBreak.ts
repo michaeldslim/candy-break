@@ -31,6 +31,8 @@ import {
   CONTINUE_TIMER_BONUS_SECONDS,
   LEVEL_TIME_MULTIPLIERS,
   STAGE_TIME_BASE_SECONDS,
+  STAGE_FADE_IN_MS,
+  STAGE_FADE_OUT_MS,
   STAGE_TIME_MIN_SECONDS,
 } from '../constants/game';
 import { IBoard, IFrozenCell, IGameShape, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
@@ -117,6 +119,7 @@ interface IUseCandyBreakResult {
   resumeSavedGame: () => Promise<boolean>;
   continueWithSavedStars: () => void;
   giveUpAfterLoss: () => void;
+  stageTransitionPhase: 'idle' | 'out' | 'in';
 }
 
 interface UseCandyBreakOptions {
@@ -723,11 +726,30 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
   const currentShape = GAME_SHAPES[shapeIndex] ?? GAME_SHAPES[0];
   const shapeMask = currentShape.mask;
   const resolveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [stageTransitionPhase, setStageTransitionPhase] = useState<'idle' | 'out' | 'in'>('idle');
+
+  const runWithStageFade = useCallback((applyNextStage: () => void) => {
+    if (stageTransitionTimerRef.current) {
+      clearTimeout(stageTransitionTimerRef.current);
+      stageTransitionTimerRef.current = null;
+    }
+    setStageTransitionPhase('out');
+    stageTransitionTimerRef.current = setTimeout(() => {
+      applyNextStage();
+      setStageTransitionPhase('in');
+      stageTransitionTimerRef.current = setTimeout(() => {
+        setStageTransitionPhase('idle');
+        stageTransitionTimerRef.current = null;
+      }, STAGE_FADE_IN_MS);
+    }, STAGE_FADE_OUT_MS);
+  }, []);
 
   useEffect(() => {
     return () => {
       if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (stageTransitionTimerRef.current) clearTimeout(stageTransitionTimerRef.current);
     };
   }, []);
 
@@ -755,6 +777,11 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setBombActivating(null);
     setStageTimerEpoch((epoch) => epoch + 1);
     setIsPaused(false);
+    if (stageTransitionTimerRef.current) {
+      clearTimeout(stageTransitionTimerRef.current);
+      stageTransitionTimerRef.current = null;
+    }
+    setStageTransitionPhase('idle');
   }, []);
 
   const togglePause = useCallback(() => {
@@ -764,15 +791,27 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
 
   const tapCell = useCallback(
     (row: number, col: number) => {
-      if (gameOver || won || isPaused || isResolving || !isPlayableCell(shapeMask, row, col)) {
+      if (
+        gameOver
+        || won
+        || isPaused
+        || isResolving
+        || stageTransitionPhase !== 'idle'
+        || !isPlayableCell(shapeMask, row, col)
+      ) {
         return;
       }
 
-      // Bomb activation — before obstacle blocks so ⚡ works even on frozen/stone cells
-      if (bombPosition && bombPosition.row === row && bombPosition.col === col) {
+      const isBombCell = !!(
+        bombPosition
+        && bombPosition.row === row
+        && bombPosition.col === col
+      );
+
+      const activateBombAt = (bombRow: number, bombCol: number): void => {
         setIsResolving(true);
-        setMatchedCellKeys([`${row}:${col}`]);
-        setBombActivating({ row, col });
+        setMatchedCellKeys([`${bombRow}:${bombCol}`]);
+        setBombActivating({ row: bombRow, col: bombCol });
         setBombPosition(null);
         setSelectedCell(null);
 
@@ -796,37 +835,39 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
             return;
           }
 
-          // Advance to next stage
-          if (isDevForceFullWin(level, stageSlot, stageOrder.length)) {
-            finishRun(finalScore, true);
-            return;
-          }
-
-          const isLastStage = stageSlot >= stageOrder.length - 1;
-          if (isLastStage) {
-          if (!isFullRunComplete(level, stageSlot, stageOrder.length)) {
-            const nextLevel = level + 1;
-              const nextRun = createNewLevelState(nextLevel);
-              setLevel(nextLevel);
-              setStageOrder(nextRun.stageOrder);
-              setStageSlot(nextRun.stageSlot);
-              applyStageInit(nextRun.init);
-              setScore(finalScore);
+          const advanceBombStage = (): void => {
+            if (isDevForceFullWin(level, stageSlot, stageOrder.length)) {
+              finishRun(finalScore, true);
               return;
             }
-            finishRun(finalScore, true);
-            return;
-          }
 
-          setScore(finalScore);
-          const nextSlot = stageSlot + 1;
-          const nextShapeIndex = stageOrder[nextSlot] ?? 0;
-          const init = initializeStage(nextShapeIndex, level);
-          setStageSlot(nextSlot);
-          applyStageInit(init);
+            const isLastStage = stageSlot >= stageOrder.length - 1;
+            if (isLastStage) {
+              if (!isFullRunComplete(level, stageSlot, stageOrder.length)) {
+                const nextLevel = level + 1;
+                const nextRun = createNewLevelState(nextLevel);
+                setLevel(nextLevel);
+                setStageOrder(nextRun.stageOrder);
+                setStageSlot(nextRun.stageSlot);
+                applyStageInit(nextRun.init);
+                setScore(finalScore);
+                return;
+              }
+              finishRun(finalScore, true);
+              return;
+            }
+
+            setScore(finalScore);
+            const nextSlot = stageSlot + 1;
+            const nextShapeIndex = stageOrder[nextSlot] ?? 0;
+            const init = initializeStage(nextShapeIndex, level);
+            setStageSlot(nextSlot);
+            applyStageInit(init);
+          };
+
+          runWithStageFade(advanceBombStage);
         }, MATCH_ANIMATION_MS);
-        return;
-      }
+      };
 
       // Locked-tiles / stone-blocks: blocked cells cannot be selected or swapped
       if (playStyle === 'locked-tiles' || playStyle === 'stone-blocks') {
@@ -846,6 +887,10 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       const tapped = { row, col };
 
       if (!selectedCell) {
+        if (isBombCell) {
+          activateBombAt(row, col);
+          return;
+        }
         setSelectedCell(tapped);
         return;
       }
@@ -856,6 +901,10 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       }
 
       if (!areAdjacent(selectedCell, tapped)) {
+        if (isBombCell) {
+          activateBombAt(row, col);
+          return;
+        }
         setSelectedCell(tapped);
         return;
       }
@@ -1082,7 +1131,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
 
         if (isStageGoalMet) {
           setIsResolving(false);
-          advanceAfterStage();
+          runWithStageFade(advanceAfterStage);
           return;
         }
 
@@ -1179,6 +1228,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       enterRunLoss,
       isPaused,
       runContinueUsed,
+      runWithStageFade,
+      stageTransitionPhase,
       won,
     ],
   );
@@ -1482,5 +1533,6 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     resumeSavedGame,
     continueWithSavedStars,
     giveUpAfterLoss,
+    stageTransitionPhase,
   };
 };

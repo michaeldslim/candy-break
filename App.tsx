@@ -713,10 +713,12 @@ function AppContent({
     timerSecondsLeft,
     stageTimeTotal,
     moveSaverRefundsUsed,
+    stageTransitionPhase,
   } = game;
 
   const [hudHeight, setHudHeight] = useState(0);
 
+  const stageFade = useRef(new Animated.Value(1)).current;
   const matchAnim = useRef(new Animated.Value(0)).current;
   const comboAnim = useRef(new Animated.Value(0)).current;
   const bombPulseAnim = useRef(new Animated.Value(0)).current;
@@ -726,6 +728,29 @@ function AppContent({
   const fireworksTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevFinalWinRef = useRef(false);
   const [showFireworks, setShowFireworks] = useState(false);
+
+  const isStageFading = stageTransitionPhase !== 'idle';
+
+  useEffect(() => {
+    if (stageTransitionPhase === 'out') {
+      Animated.timing(stageFade, {
+        toValue: 0,
+        duration: STAGE_FADE_OUT_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+    if (stageTransitionPhase === 'in') {
+      stageFade.setValue(0);
+      Animated.timing(stageFade, {
+        toValue: 1,
+        duration: STAGE_FADE_IN_MS,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [stageFade, stageTransitionPhase]);
 
   // Start/stop bomb pulse loop
   // Blink loop for special tiles handled by SpecialOverlay component
@@ -1084,6 +1109,10 @@ function AppContent({
             <Text style={styles.bestValue}>{strings.hud.best.toUpperCase()}: 🥇 {bestScore}</Text>
           </View>
         </View>
+        <Animated.View
+          style={{ opacity: stageFade }}
+          pointerEvents={isStageFading ? 'none' : 'auto'}
+        >
         <View style={styles.hudContent}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
@@ -1135,8 +1164,13 @@ function AppContent({
             );
           })()}
         </View>
+        </Animated.View>
       </View>
 
+      <Animated.View
+        style={{ opacity: stageFade, flex: 1 }}
+        pointerEvents={isStageFading ? 'none' : 'box-none'}
+      >
       <View
         style={[
           styles.boardWrapper,
@@ -1167,30 +1201,38 @@ function AppContent({
 
                   if (isBomb) {
                     return (
-                      <Animated.View
+                      <View
                         key={`cell-${rowIndex}-${colIndex}`}
-                        style={[
-                          styles.cell,
-                          {
-                            width: cellSize,
-                            height: cellSize,
-                            backgroundColor: '#ffd166',
-                            borderWidth: 2,
-                            borderColor: '#fff7c0',
-                            transform: [{ scale: bombScale }],
-                            opacity: bombOpacity,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          },
-                        ]}
+                        style={{ width: cellSize, height: cellSize, overflow: 'hidden' }}
                       >
                         <Pressable
                           onPress={() => tapCell(rowIndex, colIndex)}
-                          style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+                          disabled={gameOver || isResolving || isPaused || isStageFading}
+                          style={[
+                            styles.cell,
+                            {
+                              width: cellSize,
+                              height: cellSize,
+                              backgroundColor: '#ffd166',
+                              borderWidth: 2,
+                              borderColor: '#fff7c0',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            },
+                          ]}
                         >
-                          <Text style={{ fontSize: cellSize * 0.42, lineHeight: cellSize * 0.52 }}>⚡</Text>
+                          <Animated.View
+                            style={{
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transform: [{ scale: bombScale }],
+                              opacity: bombOpacity,
+                            }}
+                          >
+                            <Text style={{ fontSize: cellSize * 0.42, lineHeight: cellSize * 0.52 }}>⚡</Text>
+                          </Animated.View>
                         </Pressable>
-                      </Animated.View>
+                      </View>
                     );
                   }
 
@@ -1420,6 +1462,7 @@ function AppContent({
         </View>
         <Fireworks visible={showFireworks} />
       </View>
+      </Animated.View>
 
       {gameOver && !isLeaderboardPending && isNewRunRecord ? (
         <RecordCardOverlay score={score} onPlayAgain={restartFromLevelOne} />
