@@ -30,6 +30,12 @@ export const CONTINUE_MOVE_RATIO = 0.5;
 export const CONTINUE_MOVE_MIN = 3;
 export const CONTINUE_TIMER_BONUS_SECONDS = 45;
 
+/** Per-shape base stage time (seconds) for move-limited modes — index matches GAME_SHAPES. */
+export const STAGE_TIME_BASE_SECONDS = [100, 95, 110, 90, 95, 90, 105, 85, 100, 95, 105, 110];
+export const LEVEL_TIME_MULTIPLIERS = [1, 0.92, 0.85, 0.78, 0.72];
+export const STAGE_TIME_MIN_SECONDS = 45;
+export const STAGE_TIME_LOW_WARNING_SECONDS = 15;
+
 export const LEADERBOARD_MAX_ENTRIES = 10;
 export const LEADERBOARD_STORAGE_KEY = 'leaderboard';
 export const PLAYER_INITIALS_KEY = 'playerInitials';
