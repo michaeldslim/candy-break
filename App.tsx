@@ -20,7 +20,13 @@ import RecordCardOverlay from './src/components/RecordCardOverlay';
 import SettingsPage from './src/components/SettingsPage';
 import CareerPage from './src/components/CareerPage';
 import PromotionOverlay from './src/components/PromotionOverlay';
-import { MOVE_SAVER_REFUND_CAP, STAR_CONTINUE_COST, STAGE_TIME_LOW_WARNING_SECONDS } from './src/constants/game';
+import {
+  MOVE_SAVER_REFUND_CAP,
+  STAGE_FADE_IN_MS,
+  STAGE_FADE_OUT_MS,
+  STAR_CONTINUE_COST,
+  STAGE_TIME_LOW_WARNING_SECONDS,
+} from './src/constants/game';
 import { careerRankLabel } from './src/career/careerLabels';
 import { useCareer } from './src/career/CareerProvider';
 import { useBackgroundMusic } from './src/hooks/useBackgroundMusic';
@@ -37,6 +43,7 @@ const CANDY_IMAGES: Record<string, ReturnType<typeof require>> = {
   Blue: require('./assets/images/candy_blue.png'),
   Gold: require('./assets/images/candy_gold.png'),
   Mint: require('./assets/images/candy_mint.png'),
+  Green: require('./assets/images/candy_green.png'),
 };
 
 const CANDY_BAR_HEX: Record<string, string> = {
@@ -44,6 +51,7 @@ const CANDY_BAR_HEX: Record<string, string> = {
   Blue: '#4D96FF',
   Gold: '#FFD93D',
   Mint: '#6BCB77',
+  Green: '#52C41A',
 };
 
 const CANDY_NEON_TINT: Record<string, string> = {
@@ -51,6 +59,7 @@ const CANDY_NEON_TINT: Record<string, string> = {
   Blue: 'rgba(77, 150, 255, 0.16)',
   Gold: 'rgba(255, 217, 61, 0.16)',
   Mint: 'rgba(107, 203, 119, 0.16)',
+  Green: 'rgba(82, 196, 26, 0.16)',
 };
 
 type CandyColorName = keyof typeof CANDY_BAR_HEX;
@@ -67,6 +76,14 @@ const CANDY_BAR_BLEND_PAIRS: [CandyColorName, CandyColorName][] = [
   ['Mint', 'Red'],
   ['Blue', 'Gold'],
   ['Gold', 'Blue'],
+  ['Green', 'Gold'],
+  ['Gold', 'Green'],
+  ['Green', 'Blue'],
+  ['Blue', 'Green'],
+  ['Green', 'Mint'],
+  ['Mint', 'Green'],
+  ['Red', 'Green'],
+  ['Green', 'Red'],
 ];
 
 function mixHexWeighted(hex1: string, hex2: string, weight2: number): string {

@@ -5,7 +5,7 @@ export const GAME_BASE_COLS = 8;
 export const GAME_BASE_MIN_MATCH = 3;
 export const GAME_BASE_EASY_MOVES = 20;
 export const GAME_BASE_EASY_GOAL = 35;
-export const GAME_BASE_EASY_COLOR_KINDS = 4;
+export const GAME_BASE_EASY_COLOR_KINDS = 5;
 
 export const SCORE_BASE_POINTS = 15;
 export const SCORE_EXTRA_TILE_POINTS = 5;
@@ -186,6 +186,7 @@ export const COLOR_POOL: ICandyBreak[] = [
   { candyBreak: 'Blue' },
   { candyBreak: 'Gold' },
   { candyBreak: 'Mint' },
+  { candyBreak: 'Green' },
 ];
 
 /** GAME_SHAPES indices per pool tier — keep in sync with GAME_SHAPES order. */

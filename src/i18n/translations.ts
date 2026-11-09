@@ -128,6 +128,7 @@ const ko: IStrings = {
     Blue: '파랑',
     Gold: '금색',
     Mint: '민트',
+    Green: '초록',
   },
   instruction: {
     playStylesHeading: '게임 방법',
@@ -323,6 +324,7 @@ const en: IStrings = {
     Blue: 'Blue',
     Gold: 'Gold',
     Mint: 'Mint',
+    Green: 'Green',
   },
   instruction: {
     playStylesHeading: 'How to Play',
