@@ -186,8 +186,8 @@ const ko: IStrings = {
   recordCard: {
     title: '축하합니다!',
     score: '최종 점수',
-    initialsLabel: '이니셜 (3글자)',
-    initialsPlaceholder: 'ABC',
+    initialsLabel: '이니셜 (3자, A–Z · - _ . 공백)',
+    initialsPlaceholder: 'A.B',
     save: '저장',
     saved: '저장됨!',
     playAgain: '다시 하기',
