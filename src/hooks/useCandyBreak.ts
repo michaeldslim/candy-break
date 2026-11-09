@@ -28,8 +28,11 @@ import {
   CONTINUE_MOVE_RATIO,
   CONTINUE_MOVE_MIN,
   CONTINUE_TIMER_BONUS_SECONDS,
+  LEVEL_TIME_MULTIPLIERS,
+  STAGE_TIME_BASE_SECONDS,
+  STAGE_TIME_MIN_SECONDS,
 } from '../constants/game';
-import { IBoard, IFrozenCell, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
+import { IBoard, IFrozenCell, IGameShape, IJellyCell, IOrderStep, IPosition, IStoneCell, PlayStyle } from '../types';
 import type { RunResultInput } from '../types/career';
 import { loadLeaderboard, qualifiesForLeaderboardScore } from '../utils/leaderboard';
 import {
@@ -61,6 +64,7 @@ interface ISavedGame {
   jellyCells?: IJellyCell[];
   stoneCells?: IStoneCell[];
   timerSecondsLeft?: number | null;
+  stageTimeTotal?: number | null;
   comboMultiplier?: number;
   bombRespawnsLeft?: number;
   moveSaverRefundsUsed?: number;
@@ -99,6 +103,7 @@ interface IUseCandyBreakResult {
   stoneCells: IStoneCell[];
   comboMultiplier: number;
   timerSecondsLeft: number | null;
+  stageTimeTotal: number | null;
   moveSaverRefundsUsed: number;
   tapCell: (row: number, col: number) => void;
   cycleShape: () => void;
@@ -128,6 +133,26 @@ const getMovesForLevel = (level: number): number =>
 const getContinueMoves = (level: number): number => {
   const base = getMovesForLevel(level);
   return Math.max(CONTINUE_MOVE_MIN, Math.ceil(base * CONTINUE_MOVE_RATIO));
+};
+
+const getStageTimeLimit = (shapeIndex: number, level: number): number => {
+  const base = STAGE_TIME_BASE_SECONDS[shapeIndex] ?? STAGE_TIME_BASE_SECONDS[0] ?? 90;
+  const mult = LEVEL_TIME_MULTIPLIERS[level - 1] ?? LEVEL_TIME_MULTIPLIERS[LEVEL_TIME_MULTIPLIERS.length - 1] ?? 0.72;
+  return Math.max(STAGE_TIME_MIN_SECONDS, Math.round(base * mult));
+};
+
+const getStageTimerState = (
+  playStyle: PlayStyle,
+  shape: IGameShape,
+  shapeIndex: number,
+  level: number,
+): { timerSecondsLeft: number; stageTimeTotal: number } => {
+  if (playStyle === 'timer-attack') {
+    const total = shape.timerSeconds ?? TIMER_ATTACK_SECONDS;
+    return { timerSecondsLeft: total, stageTimeTotal: total };
+  }
+  const total = getStageTimeLimit(shapeIndex, level);
+  return { timerSecondsLeft: total, stageTimeTotal: total };
 };
 
 const shuffleIndices = (indices: number[]): number[] => {
@@ -401,6 +426,7 @@ interface IStageInit {
   jellyCells: IJellyCell[];
   stoneCells: IStoneCell[];
   timerSecondsLeft: number | null;
+  stageTimeTotal: number | null;
   bombRespawnsLeft: number;
   moveSaverRefundsUsed: number;
   moves: number;
@@ -420,8 +446,8 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
   let frozenCells: IFrozenCell[] = [];
   let jellyCells: IJellyCell[] = [];
   let stoneCells: IStoneCell[] = [];
-  let timerSecondsLeft: number | null = null;
   let bombRespawnsLeft = 0;
+  const { timerSecondsLeft, stageTimeTotal } = getStageTimerState(playStyle, shape, shapeIndex, level);
 
   if (playStyle === 'color-target') {
     const idx = Math.floor(Math.random() * COLOR_POOL.length);
@@ -440,6 +466,7 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
       jellyCells,
       stoneCells,
       timerSecondsLeft,
+      stageTimeTotal,
       bombRespawnsLeft,
       moveSaverRefundsUsed: 0,
       moves,
@@ -457,8 +484,6 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
       ...position,
       hitsRemaining: 1,
     }));
-  } else if (playStyle === 'timer-attack') {
-    timerSecondsLeft = shape.timerSeconds ?? TIMER_ATTACK_SECONDS;
   } else if (playStyle === 'bomb-storm') {
     bombRespawnsLeft = shape.bombRespawns ?? BOMB_STORM_RESPAWNS;
   }
@@ -473,6 +498,7 @@ const initializeStage = (shapeIndex: number, level: number): IStageInit => {
     jellyCells,
     stoneCells,
     timerSecondsLeft,
+    stageTimeTotal,
     bombRespawnsLeft,
     moveSaverRefundsUsed: 0,
     moves,
@@ -571,7 +597,12 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
   const [jellyCells, setJellyCells] = useState<IJellyCell[]>([]);
   const [stoneCells, setStoneCells] = useState<IStoneCell[]>([]);
   const [comboMultiplier, setComboMultiplier] = useState(1);
-  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(null);
+  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number | null>(
+    () => initialLevel.init.timerSecondsLeft,
+  );
+  const [stageTimeTotal, setStageTimeTotal] = useState<number | null>(
+    () => initialLevel.init.stageTimeTotal,
+  );
   const [bombRespawnsLeft, setBombRespawnsLeft] = useState(0);
   const [moveSaverRefundsUsed, setMoveSaverRefundsUsed] = useState(0);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -645,9 +676,9 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setIsLeaderboardPending(false);
   }, []);
 
-  // Timer countdown for timer-attack mode — just ticks
+  // Stage countdown when this stage has a timer
   useEffect(() => {
-    if (playStyle !== 'timer-attack' || gameOver || won) {
+    if (stageTimeTotal === null || gameOver || won) {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
@@ -663,18 +694,18 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
         timerIntervalRef.current = null;
       }
     };
-  }, [playStyle, gameOver, won]);
+  }, [stageTimeTotal, gameOver, won]);
 
   // Trigger game over when timer reaches 0
   useEffect(() => {
-    if (playStyle === 'timer-attack' && timerSecondsLeft === 0 && !gameOver && !won) {
+    if (timerSecondsLeft === 0 && !gameOver && !won) {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
       enterRunLoss(scoreRef.current);
     }
-  }, [enterRunLoss, playStyle, timerSecondsLeft, gameOver, won]);
+  }, [enterRunLoss, timerSecondsLeft, gameOver, won]);
 
   const currentShape = GAME_SHAPES[shapeIndex] ?? GAME_SHAPES[0];
   const shapeMask = currentShape.mask;
@@ -696,6 +727,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setJellyCells(init.jellyCells);
     setStoneCells(init.stoneCells);
     setTimerSecondsLeft(init.timerSecondsLeft);
+    setStageTimeTotal(init.stageTimeTotal);
     setBombRespawnsLeft(init.bombRespawnsLeft);
     setMoveSaverRefundsUsed(init.moveSaverRefundsUsed);
     setComboMultiplier(1);
@@ -923,6 +955,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
         newScore: number,
       ): void => {
         const newShapeIndex = newStageOrder[newStageSlot] ?? 0;
+        const newShape = GAME_SHAPES[newShapeIndex] ?? GAME_SHAPES[0];
+        const nextTimer = getStageTimerState(newShape.playStyle, newShape, newShapeIndex, newLevel);
         const snap: ISavedGame = {
           level: newLevel,
           shapeIndex: newShapeIndex,
@@ -933,6 +967,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
           goalRemaining: getGoalForStage(newShapeIndex, newLevel),
           board: newBoard,
           bankedStars: bankedStarsRef.current,
+          timerSecondsLeft: nextTimer.timerSecondsLeft,
+          stageTimeTotal: nextTimer.stageTimeTotal,
         };
         savedGameRef.current = snap;
         AsyncStorage.setItem(SAVE_GAME_KEY, JSON.stringify(snap)).catch(() => undefined);
@@ -1046,7 +1082,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
             frozenCells: playStyle === 'locked-tiles' ? runningObstacles.frozenCells : undefined,
             jellyCells: playStyle === 'jelly-tiles' ? runningObstacles.jellyCells : undefined,
             stoneCells: playStyle === 'stone-blocks' ? runningObstacles.stoneCells : undefined,
-            timerSecondsLeft: playStyle === 'timer-attack' ? timerSecondsLeft : undefined,
+            timerSecondsLeft: timerSecondsLeft ?? undefined,
+            stageTimeTotal: stageTimeTotal ?? undefined,
             comboMultiplier: playStyle === 'multiplier-rush' ? nextComboMultiplier : undefined,
             bombRespawnsLeft: playStyle === 'bomb-storm' ? bombRespawnsLeft : undefined,
             moveSaverRefundsUsed: playStyle === 'move-saver' ? nextMoveSaverRefundsUsed : undefined,
@@ -1116,6 +1153,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       stageSlot,
       targetColor,
       timerSecondsLeft,
+      stageTimeTotal,
       enterRunLoss,
       won,
     ],
@@ -1164,8 +1202,14 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setComboMultiplier(saved.comboMultiplier ?? 1);
     setBombRespawnsLeft(saved.bombRespawnsLeft ?? 0);
     setMoveSaverRefundsUsed(saved.moveSaverRefundsUsed ?? 0);
-    // Always reset timer to full on resume (timer doesn't persist across sessions)
-    setTimerSecondsLeft(shape.playStyle === 'timer-attack' ? (shape.timerSeconds ?? TIMER_ATTACK_SECONDS) : null);
+    if (saved.timerSecondsLeft != null) {
+      setTimerSecondsLeft(saved.timerSecondsLeft);
+      setStageTimeTotal(saved.stageTimeTotal ?? saved.timerSecondsLeft);
+    } else {
+      const timerState = getStageTimerState(shape.playStyle, shape, restoredShapeIndex, saved.level);
+      setTimerSecondsLeft(timerState.timerSecondsLeft);
+      setStageTimeTotal(timerState.stageTimeTotal);
+    }
   }, []);
 
   const persistCurrentSnap = useCallback((): void => {
@@ -1186,7 +1230,8 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
       frozenCells: playStyle === 'locked-tiles' ? frozenCells : undefined,
       jellyCells: playStyle === 'jelly-tiles' ? jellyCells : undefined,
       stoneCells: playStyle === 'stone-blocks' ? stoneCells : undefined,
-      timerSecondsLeft: playStyle === 'timer-attack' ? timerSecondsLeft : undefined,
+      timerSecondsLeft: timerSecondsLeft ?? undefined,
+      stageTimeTotal: stageTimeTotal ?? undefined,
       comboMultiplier: playStyle === 'multiplier-rush' ? comboMultiplier : undefined,
       bombRespawnsLeft: playStyle === 'bomb-storm' ? bombRespawnsLeft : undefined,
       moveSaverRefundsUsed: playStyle === 'move-saver' ? moveSaverRefundsUsed : undefined,
@@ -1213,6 +1258,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     stoneCells,
     targetColor,
     timerSecondsLeft,
+    stageTimeTotal,
   ]);
 
   const continueWithSavedStars = useCallback(() => {
@@ -1223,9 +1269,19 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     setWon(false);
     setIsResolving(false);
     if (playStyle === 'timer-attack') {
-      setTimerSecondsLeft((prev) => (prev ?? 0) + CONTINUE_TIMER_BONUS_SECONDS);
+      setTimerSecondsLeft((prev) => {
+        const next = (prev ?? 0) + CONTINUE_TIMER_BONUS_SECONDS;
+        setStageTimeTotal((total) => Math.max(total ?? 0, next));
+        return next;
+      });
     } else {
       setMovesLeft(getContinueMoves(level));
+      setTimerSecondsLeft((prev) => {
+        if (prev === null) return null;
+        const next = prev + CONTINUE_TIMER_BONUS_SECONDS;
+        setStageTimeTotal((total) => Math.max(total ?? 0, next));
+        return next;
+      });
     }
     persistCurrentSnap();
   }, [bankedStars, level, persistCurrentSnap, playStyle]);
@@ -1340,6 +1396,7 @@ export const useCandyBreak = (options?: UseCandyBreakOptions): IUseCandyBreakRes
     stoneCells,
     comboMultiplier,
     timerSecondsLeft,
+    stageTimeTotal,
     moveSaverRefundsUsed,
     tapCell,
     cycleShape,
