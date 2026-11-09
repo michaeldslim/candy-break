@@ -6,8 +6,9 @@ import {
 } from '../constants/game';
 import { ILeaderboardEntry } from '../types';
 
+/** Up to 3 chars: letters, space, and - _ . */
 export const normalizeInitials = (raw: string): string =>
-  raw.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+  raw.toUpperCase().replace(/[^A-Z\-_. ]/g, '').slice(0, 3);
 
 /** Only entries the player explicitly saved via the record card count. */
 const isSubmittedEntry = (entry: ILeaderboardEntry): boolean =>

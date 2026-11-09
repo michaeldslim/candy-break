@@ -382,8 +382,8 @@ const en: IStrings = {
   recordCard: {
     title: 'You Win!',
     score: 'Final Score',
-    initialsLabel: 'Initials (3 letters)',
-    initialsPlaceholder: 'ABC',
+    initialsLabel: 'Initials (3 chars: A–Z, - _ . space)',
+    initialsPlaceholder: 'A.B',
     save: 'Save',
     saved: 'Saved!',
     playAgain: 'Play Again',
