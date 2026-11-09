@@ -1,6 +1,6 @@
 # Candy Break
 
-A match-3 puzzle game built with React Native and Expo. Swap adjacent candies on a **12×8** board, chain cascades, and clear each stage's goal before your moves run out.
+A match-3 puzzle game built with React Native and Expo. Swap adjacent candies on a **12×8** board, chain cascades, and clear each stage's goal before your moves or stage time run out.
 
 ## Gameplay
 
@@ -9,11 +9,24 @@ A match-3 puzzle game built with React Native and Expo. Swap adjacent candies on
 - **Special tiles** (most modes):
   - 4-match → Striped (clears a row or column)
   - 5+ match → Rainbow (clears all candies of one color)
-- **Cascade system** — cleared candies drop and refill, triggering chain combos
-- **Bomb power-up** — appears at ~60% of remaining moves in most limited-move modes; tap to skip the stage for +50 bonus points
-- **Star rating** — earn 1–3 stars based on moves (or time) remaining when you win
+- **Cascade system** — cleared candies drop and refill, triggering chain combos (`+combo xN!` when a swap chains 2+ match rounds)
+- **Stage timer** — every stage has a countdown (HUD time bar + seconds). **Timer Attack** has no move limit; its timer is the main win/lose clock. Other modes use limited moves **and** a stage timer.
+- **Bomb power-up** — appears at ~60% of remaining moves in most limited-move modes (30% in Bomb Storm); tap for +50 bonus points (Bomb Storm respawns once)
+- **Run save** — progress is saved after moves and when pausing, leaving the game screen, or backgrounding the app. **Resume Last Game** on the home screen restores the saved board, stage, and mode.
+- **Pause** — ⏸ / ▶ next to the title during play (stops the stage timer and input)
+- **Continue on game over** — once per run, continue on the same board with extra time and (non–Timer Attack) restored moves. Optional **banked stars** (see below) change the button label when you have 3.
 - **5 levels** — each level draws stages from a growing pool of play styles; stage count and available modes scale with level
-- Progress is saved automatically mid-run. Resume from the instruction screen when you return.
+
+### Banked stars & continue
+
+| Rule | Detail |
+|------|--------|
+| Earn stars | One swap with combo **x7+** banks **1 star** (max **3** stars per run) |
+| HUD | Saved stars shown as ★/☆; ♥ badge only when 3 stars are banked |
+| Continue | **Once per run** on loss — same board; if you have **3 stars**, they are spent when you continue |
+| Timer Attack continue | **+45 seconds** on the stage timer |
+| Other modes continue | **+45 seconds** on the stage timer **and** moves set to **50%** of that level's starting moves (minimum **3**) |
+| New game / give up | Banked stars and continue availability reset |
 
 ## Play Styles
 
@@ -37,48 +50,48 @@ All 12 modes use the full **12×8** board. Candy colors: **Red**, **Blue**, **Go
 
 | # | Mode | Goal | Moves | Notes |
 |---|------|------|-------|-------|
-| 1 | **Classic** 🍬 | Clear N candies | Limited | Standard rules; bomb appears at 60% moves left |
+| 1 | **Classic** 🍬 | Clear N candies | Limited | Standard rules; bomb at ~60% moves left |
 | 2 | **Color Target** 🎯 | Clear N of one color | Limited | Random target color; only that color counts toward Goal |
-| 3 | **Locked Tiles** ❄️ | Thaw all frozen cells | Limited | 20% of cells frozen; match adjacent to ice; 2 hits to thaw each |
+| 3 | **Locked Tiles** ❄️ | Thaw all frozen cells | Limited | ~20% frozen; 2 hits per cell |
 | 4 | **Multiplier Rush** ✨ | Clear N candies | Limited | Cascade combos double score multiplier (max 8×) |
-| 5 | **Bomb Storm** 💣 | Clear N candies | Limited | Bomb spawns at 30% moves; respawns once (2 bombs total) |
-| 6 | **Timer Attack** ⏱️ | Clear N candies | Unlimited | 90-second countdown; stars based on time remaining |
-| 7 | **Order Collect** 📋 | Clear colors in sequence | Limited | Shuffled Red/Blue/Gold queue; only the active color counts |
-| 8 | **Combo Goal** 🔗 | Reach N cascade steps | Limited | Only chain matches count (not the first match of a swap) |
-| 9 | **Move Saver** 💾 | Clear N candies | Limited | 2+ cascades refund 1 move (max 3 refunds per stage) |
-| 10 | **Pure Match** 🧩 | Clear N candies | Limited | No striped or rainbow candies spawn or activate |
-| 11 | **Jelly Tiles** 🟢 | Clear all jelly cells | Limited | 15% of cells have jelly; match on a jelly cell to remove it |
-| 12 | **Stone Blocks** 🪨 | Break all stone blocks | Limited | 12% of cells have stone; match adjacent to break (1 hit each) |
+| 5 | **Bomb Storm** 💣 | Clear N candies | Limited | Bomb at ~30% moves; respawns once |
+| 6 | **Timer Attack** ⏱️ | Clear N candies | Unlimited | 90-second mode timer (no move limit) |
+| 7 | **Order Collect** 📋 | Clear colors in sequence | Limited | Red / Blue / Gold queue; active color only |
+| 8 | **Combo Goal** 🔗 | Reach N cascade steps | Limited | Only chain steps after the first match in a swap |
+| 9 | **Move Saver** 💾 | Clear N candies | Limited | 2+ cascades refund 1 move (max 3 per stage) |
+| 10 | **Pure Match** 🧩 | Clear N candies | Limited | No striped or rainbow spawn or activation |
+| 11 | **Jelly Tiles** 🟢 | Clear all jelly cells | Limited | ~15% jelly cells |
+| 12 | **Stone Blocks** 🪨 | Break all stone blocks | Limited | ~12% stone cells |
+
+Stage time limits use per-mode base seconds × level multipliers (minimum 45s). See `STAGE_TIME_BASE_SECONDS` and `LEVEL_TIME_MULTIPLIERS` in `src/constants/game.ts`.
 
 ### Mode details
 
-**Classic** — The baseline mode. Clear the target number of candies within limited moves. When remaining moves reach 60%, a bomb appears on the board. Tapping it awards +50 points and advances to the next stage.
+**Classic** — Clear the candy goal within limited moves and the stage timer. Bomb at ~60% moves remaining awards +50 points and advances the stage when tapped (except Bomb Storm rules).
 
-**Color Target** — A random candy color is chosen at stage start. Only candies of that color reduce the Goal counter. Clearing other colors still scores points but does not progress the objective.
+**Color Target** — A random color is chosen at stage start; only that color reduces Goal.
 
-**Locked Tiles** — About 20% of cells are covered in ice (❄️). Frozen cells cannot be swapped. Matching candies in an adjacent cell deals 1 hit to the ice; each cell requires 2 hits to fully thaw. Goal = number of cells still frozen.
+**Locked Tiles** — Frozen cells cannot be swapped; adjacent matches thaw ice (2 hits per cell).
 
-**Multiplier Rush** — Clear candies while building a score multiplier. When a swap triggers 2+ cascade steps, the multiplier doubles (1× → 2× → 4× → 8×, capped at 8×). The multiplier resets after each move. Goal tracks candy clears, but the HUD shows score progress.
+**Multiplier Rush** — Goal tracks candy clears; HUD shows score. Multiplier doubles on 2+ cascade steps per swap (cap 8×), resets after each move.
 
-**Bomb Storm** — Similar to Classic, but the bomb appears earlier (at 30% moves remaining) and respawns once after the first tap, giving two bomb opportunities per stage before advancing.
+**Bomb Storm** — Bomb spawns at ~30% moves; respawns once (two bombs per stage).
 
-**Timer Attack** — No move limit; instead a 90-second timer counts down. Clear the candy goal before time runs out. Star rating is based on remaining time (≥50% → 3 stars).
+**Timer Attack** — No move limit; clear the candy goal before the 90-second countdown ends.
 
-**Order Collect** — Collect candies in a shuffled sequence of Red, Blue, and Gold. Each color requires ~12 clears (scaled by level). Only the currently active color counts; completing one color advances to the next. All three must be finished to clear the stage.
+**Order Collect** — Complete shuffled Red → Blue → Gold steps in order.
 
-**Combo Goal** — Goal is measured in cascade steps, not candies cleared. The first match from a swap does not count — only subsequent chain reactions within the same move increment the Goal. Base target: 12 cascades (scaled by level).
+**Combo Goal** — Goal counts cascade match rounds only (not the first match of the swap).
 
-**Move Saver** — Clear candies within limited moves, but cascades reward efficiency. If a single swap produces 2+ cascade steps, 1 move is refunded. Up to 3 refunds per stage.
+**Move Saver** — Up to 3 move refunds per stage when a swap produces 2+ cascades.
 
-**Pure Match** — Striped and rainbow special candies never spawn or activate, even on 4- or 5-match clears. All matching is basic 3+ clears only.
+**Pure Match** — No special candy creation or activation.
 
-**Jelly Tiles** — About 15% of cells have a jelly layer underneath. Matching on a jelly cell removes the jelly from that cell. Goal = number of jelly cells remaining.
-
-**Stone Blocks** — About 12% of cells contain stone blocks (🪨). Stones cannot be swapped. Matching in an adjacent cell deals 1 hit, destroying the stone. Goal = number of stones remaining.
+**Jelly Tiles** / **Stone Blocks** — Clear jelly on-cell or break adjacent stones.
 
 ### Bomb power-up
 
-In most limited-move modes, a bomb tile appears when remaining moves reach a threshold (~60% for most modes, 30% for Bomb Storm). Tapping the bomb awards +50 points. In Bomb Storm, the bomb respawns once before advancing; in other modes, tapping it skips directly to the next stage.
+In most limited-move modes, a bomb appears when remaining moves hit a threshold (~60%, or ~30% in Bomb Storm). Tap for +50 points. In Bomb Storm the bomb respawns once; in other modes, tapping typically skips to the next stage after the bonus.
 
 ## Scoring
 
@@ -91,25 +104,32 @@ In most limited-move modes, a bomb tile appears when remaining moves reach a thr
 
 ## Level Progression
 
-| Level | Moves | Goal multiplier |
-|-------|-------|-----------------|
+| Level | Starting moves | Goal multiplier |
+|-------|----------------|-----------------|
 | 1 | 20 | ×1.0 |
 | 2 | 19 | ×1.15 |
 | 3 | 18 | ×1.3 |
 | 4 | 17 | ×1.5 |
 | 5 | 16 | ×1.7 |
 
-Base goals per play style (level 1): `[40, 55, 65, 45, 55, 50, 36, 12, 48, 42, 50, 45]` — indices match `GAME_SHAPES` order in `src/constants/game.ts`. Locked Tiles, Jelly Tiles, Stone Blocks, and Order Collect compute goals differently (cell ratios and per-color counts).
+Base goals per play style (level 1): indices match `GAME_SHAPES` in `src/constants/game.ts`. Locked Tiles, Jelly, Stone, and Order Collect derive goals from board setup.
+
+## App features
+
+- **Settings** ⚙ — language, avatar, career (from home or in-game; back returns to where you opened it)
+- **Career** — rank progression from run results (wins and completed levels)
+- **Leaderboard** — top 10 scores from the home screen modal
 
 ## Project Structure
 
 | Layer | Path | Responsibility |
 |-------|------|----------------|
 | Types | `src/types/index.ts` | `PlayStyle`, board/cell interfaces |
-| Constants | `src/constants/game.ts` | Grid size, scoring, `GAME_SHAPES` |
+| Constants | `src/constants/game.ts` | Grid size, scoring, timers, `GAME_SHAPES` |
 | Engine | `src/utils/gameEngine.ts` | Swaps, matches, cascades, specials, scoring |
 | State | `src/hooks/useCandyBreak.ts` | Stage progression, mode rules, persistence |
 | UI | `App.tsx`, `src/components/` | Rendering, HUD, overlays, sounds |
+| i18n | `src/i18n/` | Korean / English UI copy (including in-app instructions) |
 
 Game rules live in the hook and engine — not in UI components.
 
@@ -172,5 +192,8 @@ OTA updates only reach devices whose `runtimeVersion` matches. A new binary buil
 | Key | Purpose |
 |-----|---------|
 | `bestScore` | All-time high score |
-| `savedGame` | Mid-run board, level, stage, mode state |
-| `stars_L{level}_S{shapeIndex}` | Best star rating per stage |
+| `savedGame` | Mid-run board, level, stage order/slot, mode state, banked stars, continue-used flag, timers |
+| `leaderboard` / `playerInitials` | Local top-10 leaderboard |
+| `appLanguage` | UI language (ko / en) |
+
+Career and settings use additional keys under `src/career/` and `src/settings/`.
